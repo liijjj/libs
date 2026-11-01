@@ -1,0 +1,848 @@
+/*!
+ * gthx.js  v1.0.0
+ * 网页翻译（Google 翻译接口）+ 悬停显示原文
+ *
+ * 不依赖 gtranslate 的 float.js / lib.min.js，单文件即可工作。
+ *
+ * 用法一（自动）：
+ *   <script src="gthx.js" charset="utf-8"></script>
+ *   window.gthxSettings = { default_language:'auto', languages:['zh-CN','en','ja'] };
+ *
+ * 用法二（手动）：
+ *   GTHX.translate('zh-CN');   // 翻译整页
+ *   GTHX.restore();            // 还原原文
+ *   GTHX.language;             // 当前目标语言（空字符串 = 原文）
+ */
+(function (window, document) {
+    'use strict';
+
+    var VERSION = '1.0.0';
+
+    /* ------------------------------------------------------------ 语言名称 */
+    var LANG_CN = {
+        'af': '南非荷兰语', 'am': '阿姆哈拉语', 'ar': '阿拉伯语', 'az': '阿塞拜疆语',
+        'be': '白俄罗斯语', 'bg': '保加利亚语', 'bn': '孟加拉语', 'bs': '波斯尼亚语',
+        'ca': '加泰罗尼亚语', 'ceb': '宿务语', 'co': '科西嘉语', 'cs': '捷克语',
+        'cy': '威尔士语', 'da': '丹麦语', 'de': '德语', 'el': '希腊语', 'en': '英语',
+        'eo': '世界语', 'es': '西班牙语', 'et': '爱沙尼亚语', 'eu': '巴斯克语',
+        'fa': '波斯语', 'fi': '芬兰语', 'fr': '法语', 'fy': '弗里西语', 'ga': '爱尔兰语',
+        'gd': '苏格兰盖尔语', 'gl': '加利西亚语', 'gu': '古吉拉特语', 'ha': '豪萨语',
+        'haw': '夏威夷语', 'he': '希伯来语', 'iw': '希伯来语', 'hi': '印地语',
+        'hmn': '苗语', 'hr': '克罗地亚语', 'ht': '海地克里奥尔语', 'hu': '匈牙利语',
+        'hy': '亚美尼亚语', 'id': '印尼语', 'ig': '伊博语', 'is': '冰岛语',
+        'it': '意大利语', 'ja': '日语', 'jw': '爪哇语', 'ka': '格鲁吉亚语',
+        'kk': '哈萨克语', 'km': '高棉语', 'kn': '卡纳达语', 'ko': '韩语',
+        'ku': '库尔德语', 'ky': '吉尔吉斯语', 'la': '拉丁语', 'lb': '卢森堡语',
+        'lo': '老挝语', 'lt': '立陶宛语', 'lv': '拉脱维亚语', 'mg': '马尔加什语',
+        'mi': '毛利语', 'mk': '马其顿语', 'ml': '马拉雅拉姆语', 'mn': '蒙古语',
+        'mr': '马拉地语', 'ms': '马来语', 'mt': '马耳他语', 'my': '缅甸语',
+        'ne': '尼泊尔语', 'nl': '荷兰语', 'no': '挪威语', 'ny': '齐切瓦语',
+        'pa': '旁遮普语', 'pl': '波兰语', 'ps': '普什图语', 'pt': '葡萄牙语',
+        'ro': '罗马尼亚语', 'ru': '俄语', 'sd': '信德语', 'si': '僧伽罗语',
+        'sk': '斯洛伐克语', 'sl': '斯洛文尼亚语', 'sm': '萨摩亚语', 'sn': '修纳语',
+        'so': '索马里语', 'sq': '阿尔巴尼亚语', 'sr': '塞尔维亚语', 'st': '塞索托语',
+        'su': '巽他语', 'sv': '瑞典语', 'sw': '斯瓦希里语', 'ta': '泰米尔语',
+        'te': '泰卢固语', 'tg': '塔吉克语', 'th': '泰语', 'tl': '菲律宾语',
+        'tr': '土耳其语', 'uk': '乌克兰语', 'ur': '乌尔都语', 'uz': '乌兹别克语',
+        'vi': '越南语', 'xh': '科萨语', 'yi': '意第绪语', 'yo': '约鲁巴语',
+        'zh': '中文', 'zh-CN': '简体中文', 'zh-TW': '繁体中文', 'zu': '祖鲁语'
+    };
+
+    /* ---------------------------------------------------------------- 配置 */
+    var DEFAULTS = {
+        default_language: 'auto',        // 原文语言，auto = 自动检测
+        languages: ['zh-CN', 'en', 'ja'],// 切换器里可选的目标语言
+        language_names: null,            // 自定义语言名称，如 { en:'English' }
+        initial_language: '',            // 加载后自动翻译成哪种语言（空 = 不自动翻译）
+        auto_translate: null,            // initial_language 的别名：'zh-CN' 即启动后自动翻译
+        detect_browser_language: false,  // 首次访问时按浏览器语言自动翻译
+        auto_init: true,                 // 是否在 DOM 就绪后自动初始化
+
+        endpoint: 'https://clients5.google.com/translate_a/t',
+        client: 'dict-chrome-ex',
+        batch_chars: 1200,               // 单次请求最多多少字符
+        batch_items: 20,                 // 单次请求最多多少段
+        request_gap: 120,                // 两批请求之间的间隔（毫秒）
+
+        ui: true,                        // 是否显示语言切换器
+        ui_position: 'top-right',        // top-right / top-left / bottom-right / bottom-left
+        ui_container: '',                // 渲染到某个容器里（此时不再 fixed 定位）
+
+        tooltip: true,                   // 悬停显示原文
+        show_original: null,             // tooltip 的别名：false = 只翻译、不弹原文气泡
+        hover_highlight: true,           // 悬停时给译文一层浅色底
+        hover_delay: 0,                  // 显示延迟（毫秒）
+        hide_delay: 60,                  // 隐藏延迟（毫秒）
+        source_label: '原文',
+
+        observe: true,                   // 监听动态内容并自动翻译
+        storage_key: '__GTHX_STATE',     // 记住上次选择的语言
+        cache_key: '__GTHX_CACHE',       // 译文缓存（跨页面复用）
+        debug: false
+    };
+
+    var cfg = extend({}, DEFAULTS);
+
+    /* 用户写的 show_original / auto_translate 同步到内部选项 */
+    function normalizeCfg() {
+        if (cfg.auto_translate !== null && cfg.auto_translate !== undefined) {
+            cfg.initial_language = cfg.auto_translate || '';
+        }
+        if (cfg.show_original !== null && cfg.show_original !== undefined) {
+            cfg.tooltip = !!cfg.show_original;
+        }
+    }
+
+    /* ------------------------------------------------------------ 小工具 */
+    function extend(target) {
+        for (var i = 1; i < arguments.length; i++) {
+            var src = arguments[i];
+            if (!src) continue;
+            for (var k in src) {
+                if (Object.prototype.hasOwnProperty.call(src, k)) target[k] = src[k];
+            }
+        }
+        return target;
+    }
+
+    function sleep(ms) {
+        return new Promise(function (r) { setTimeout(r, ms); });
+    }
+
+    function log() {
+        if (!cfg.debug) return;
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift('[gthx]');
+        try { console.log.apply(console, args); } catch (e) { }
+    }
+
+    function langName(code) {
+        if (!code) return '';
+        var custom = cfg.language_names || {};
+        if (custom[code]) return custom[code];
+        if (LANG_CN[code]) return LANG_CN[code];
+        var base = String(code).split('-')[0];
+        return LANG_CN[base] || code;
+    }
+
+    /* 判断字符里是否含有文字（避免翻译纯数字、纯符号） */
+    var HAS_LETTER;
+    try {
+        HAS_LETTER = new RegExp('\\p{L}', 'u');
+    } catch (e) {
+        HAS_LETTER = /[A-Za-zÀ-ÖØ-öø-ÿ\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/;
+    }
+
+    /* ---------------------------------------------------------------- 状态 */
+    var state = {
+        lang: '',        // 当前目标语言，'' = 原文
+        detected: '',    // 最近一次识别出的原文语言
+        spans: [],       // 我们创建的所有译文 span
+        running: false,
+        again: false,
+        promise: null,
+        gen: 0,          // 语言切换代数，用于作废进行中的请求
+        cache: {},
+        cacheDirty: false,
+        anchor: null,    // 当前悬停的 span
+        uiBuilt: false,
+        uiRoot: null
+    };
+
+    var hideTimer = 0;
+    var showTimer = 0;
+
+    /* --------------------------------------------------------------- 样式 */
+    function injectCSS() {
+        if (document.getElementById('gthx-style')) return;
+        var css = [
+            /* 译文片段 */
+            '.gthx-s{transition:background-color .12s ease}',
+            '.gthx-s.gthx-hl:hover{background:rgba(26,115,232,.13);border-radius:3px;box-shadow:0 0 0 2px rgba(26,115,232,.13)}',
+
+            /* 原文气泡 */
+            '.gthx-tip{position:fixed;z-index:2147483647;left:0;top:0;box-sizing:border-box;',
+            'max-width:min(460px,calc(100vw - 24px));background:#fff;color:#202124;',
+            'border:1px solid rgba(0,0,0,.14);border-radius:10px;',
+            'box-shadow:0 6px 24px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.08);',
+            'padding:9px 13px 10px;font:400 14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;',
+            'text-align:left;word-break:break-word;overflow-wrap:break-word;',
+            'pointer-events:none;opacity:0;visibility:hidden;transform:translateY(3px);',
+            'transition:opacity .12s ease,transform .12s ease,visibility .12s}',
+
+            '.gthx-tip.gthx-on{opacity:1;visibility:visible;transform:none}',
+            '.gthx-tip .gthx-tip-l{font-size:11px;line-height:1.4;color:#80868b;margin:0 0 3px;letter-spacing:.02em}',
+            '.gthx-tip .gthx-tip-t{white-space:pre-wrap}',
+            '.gthx-tip .gthx-arrow{position:absolute;width:9px;height:9px;background:#fff}',
+            '.gthx-tip[data-pos="below"] .gthx-arrow{top:-5px;border-top:1px solid rgba(0,0,0,.14);border-left:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
+            '.gthx-tip[data-pos="above"] .gthx-arrow{bottom:-5px;border-right:1px solid rgba(0,0,0,.14);border-bottom:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
+
+            /* 语言切换器 */
+            '.gthx-sw{position:fixed;z-index:2147483000;font:400 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#3c4043}',
+            '.gthx-sw[data-pos="top-right"]{top:12px;right:12px}',
+            '.gthx-sw[data-pos="top-left"]{top:12px;left:12px}',
+            '.gthx-sw[data-pos="bottom-right"]{bottom:12px;right:12px}',
+            '.gthx-sw[data-pos="bottom-left"]{bottom:12px;left:12px}',
+            '.gthx-sw.gthx-static{position:static}',
+            '.gthx-sw-cur{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid rgba(0,0,0,.13);',
+            'border-radius:999px;padding:6px 13px;box-shadow:0 1px 4px rgba(0,0,0,.13);cursor:pointer;font:inherit;color:inherit}',
+            '.gthx-sw-cur:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}',
+            '.gthx-sw-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #5f6368}',
+            '.gthx-sw-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:132px;max-height:60vh;overflow:auto;',
+            'background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:4px;display:none}',
+            '.gthx-sw.gthx-open .gthx-sw-menu{display:block}',
+            '.gthx-sw-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 11px;border-radius:6px;',
+            'cursor:pointer;font:inherit;color:inherit;white-space:nowrap}',
+            '.gthx-sw-menu button:hover{background:#f1f3f4}',
+            '.gthx-sw-menu button[aria-selected="true"]{color:#1a73e8;font-weight:600}'
+        ].join('');
+        var style = document.createElement('style');
+        style.id = 'gthx-style';
+        style.appendChild(document.createTextNode(css));
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    /* ------------------------------------------------------- 原文气泡 */
+    var tip, tipLabel, tipText, tipArrow;
+
+    function buildTip() {
+        if (tip) return;
+        tip = document.createElement('div');
+        tip.className = 'gthx-tip';
+        tip.setAttribute('translate', 'no');
+        tip.setAttribute('role', 'tooltip');
+        tipLabel = document.createElement('div');
+        tipLabel.className = 'gthx-tip-l';
+        tipText = document.createElement('div');
+        tipText.className = 'gthx-tip-t';
+        tipArrow = document.createElement('div');
+        tipArrow.className = 'gthx-arrow';
+        tip.appendChild(tipLabel);
+        tip.appendChild(tipText);
+        tip.appendChild(tipArrow);
+        document.body.appendChild(tip);
+    }
+
+    function placeTip(span) {
+        var r = span.getBoundingClientRect();
+        var vw = window.innerWidth || document.documentElement.clientWidth;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+
+        var px = r.left + (state.dx || 0);
+        var py = r.top + (state.dy || 0);
+
+        tip.style.left = '0px';
+        tip.style.top = '0px';
+        var tw = tip.offsetWidth;
+        var th = tip.offsetHeight;
+
+        var below = (vh - py) > th + 26 || py < th + 26;
+        var top = below ? py + 20 : py - th - 20;
+        if (top + th > vh - 8) { top = Math.max(8, py - th - 20); below = false; }
+        if (top < 8) { top = py + 20; below = true; }
+
+        var left = Math.max(8, Math.min(px - tw / 2, vw - tw - 8));
+
+        tip.style.left = Math.round(left) + 'px';
+        tip.style.top = Math.round(top) + 'px';
+        tip.setAttribute('data-pos', below ? 'below' : 'above');
+
+        // 箭头对准鼠标所指的位置
+        var ax = px - left - 6;
+        ax = Math.max(11, Math.min(tw - 22, ax));
+        tipArrow.style.left = Math.round(ax) + 'px';
+    }
+
+    function showTip(span, x, y) {
+        if (!cfg.tooltip || !span || !span.__gthx) return;
+        clearTimeout(hideTimer);
+        var g = span.__gthx;
+        var name = langName(g.src);
+        tipLabel.textContent = cfg.source_label + (name ? ' · ' + name : '');
+        tipText.textContent = g.core;
+
+        // 记住鼠标在片段内的相对位置，滚动时保持跟随
+        var r = span.getBoundingClientRect();
+        if (typeof x === 'number' && typeof y === 'number') {
+            state.dx = Math.min(Math.max(x - r.left, 0), r.width || 0);
+            state.dy = Math.min(Math.max(y - r.top, 0), r.height || 0);
+        } else {
+            state.dx = Math.min(r.width || 0, 240) / 2;
+            state.dy = r.height || 0;
+        }
+
+        state.anchor = span;
+        placeTip(span);
+        tip.classList.add('gthx-on');
+    }
+
+    function hideTip(now) {
+        if (!tip) return;
+        clearTimeout(hideTimer);
+        if (now) {
+            tip.classList.remove('gthx-on');
+            state.anchor = null;
+        } else {
+            hideTimer = setTimeout(function () {
+                tip.classList.remove('gthx-on');
+                state.anchor = null;
+            }, cfg.hide_delay);
+        }
+    }
+
+    function segOf(node) {
+        while (node && node.nodeType === 1) {
+            if (node.classList && node.classList.contains('gthx-s')) return node;
+            node = node.parentNode;
+        }
+        return null;
+    }
+
+    function bindHover() {
+        document.addEventListener('mouseover', function (e) {
+            var s = segOf(e.target);
+            if (s) {
+                var a = state.anchor;
+                if (a && a !== s) hideTip(true);
+                if (!a || a !== s) {
+                    var run = function () { showTip(s, e.clientX, e.clientY); };
+                    if (cfg.hover_delay > 0) { clearTimeout(showTimer); showTimer = setTimeout(run, cfg.hover_delay); }
+                    else run();
+                }
+            } else if (state.anchor && !segOf(e.relatedTarget)) {
+                hideTip();
+            }
+        }, false);
+
+        document.addEventListener('mouseout', function (e) {
+            var s = segOf(e.target);
+            if (!s) return;
+            if (e.relatedTarget && s.contains(e.relatedTarget)) return;
+            clearTimeout(showTimer);
+            hideTip();
+        }, false);
+
+        // 触屏：轻点译文也能看到原文
+        document.addEventListener('touchstart', function (e) {
+            var s = segOf(e.target);
+            if (s) {
+                var t = e.touches && e.touches[0];
+                showTip(s, t && t.clientX, t && t.clientY);
+                clearTimeout(hideTimer);
+                hideTimer = setTimeout(function () { hideTip(true); }, 5000);
+            } else {
+                hideTip(true);
+            }
+        }, false);
+
+        window.addEventListener('scroll', function () {
+            if (state.anchor && tip && tip.classList.contains('gthx-on')) placeTip(state.anchor);
+        }, true);
+
+        window.addEventListener('resize', function () {
+            if (state.anchor) placeTip(state.anchor);
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') hideTip(true);
+        });
+    }
+
+    /* ------------------------------------------------------------ 扫描文本 */
+    var SKIP_TAGS = {
+        SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, IFRAME: 1, CANVAS: 1, SVG: 1, MATH: 1,
+        TEXTAREA: 1, INPUT: 1, SELECT: 1, OPTION: 1,
+        CODE: 1, PRE: 1, KBD: 1, SAMP: 1, VAR: 1, HEAD: 1, TITLE: 1, TEMPLATE: 1,
+        VIDEO: 1, AUDIO: 1, OBJECT: 1, EMBED: 1
+    };
+
+    function isExcluded(el) {
+        var tag = el.tagName;
+        if (SKIP_TAGS[tag]) return true;
+        if (el.isContentEditable) return true;
+        if (el.closest) {
+            if (el.closest('.gthx-tip,.gthx-sw,.notranslate,[translate="no"],[contenteditable="true"]')) return true;
+        } else {
+            var p = el;
+            while (p && p.nodeType === 1) {
+                if (p.classList && (p.classList.contains('notranslate') || p.classList.contains('gthx-tip') || p.classList.contains('gthx-sw'))) return true;
+                if (p.getAttribute && p.getAttribute('translate') === 'no') return true;
+                p = p.parentNode;
+            }
+        }
+        return false;
+    }
+
+    function makeSegment(node) {
+        var raw = node.nodeValue;
+        if (!raw) return null;
+        var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(raw);
+        // 折叠源码里的换行/多空格，避免译文出现奇怪的断行
+        var core = m[2].replace(/\s+/g, ' ');
+        if (!core || !HAS_LETTER.test(core)) return null;
+        return { node: node, raw: raw, lead: m[1], core: core, trail: m[3] };
+    }
+
+    function scan(root, out) {
+        var node = root.firstChild;
+        while (node) {
+            if (node.nodeType === 1) {
+                if (!isExcluded(node)) scan(node, out);
+            } else if (node.nodeType === 3) {
+                var seg = makeSegment(node);
+                if (seg) out.push(seg);
+            }
+            node = node.nextSibling;
+        }
+    }
+
+    /* ------------------------------------------------------------ 译文应用 */
+    function applySeg(seg, row) {
+        var node = seg.node;
+        var parent = node.parentNode;
+        if (!parent || node.nodeValue !== seg.raw) return false;
+
+        var span = document.createElement('span');
+        span.className = 'gthx-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' gthx-hl' : '');
+        span.setAttribute('translate', 'no');
+        span.textContent = seg.lead + (row.text || seg.core) + seg.trail;
+        span.__gthx = { orig: seg.raw, core: seg.core, src: row.src || '' };
+
+        parent.replaceChild(span, node);
+        state.spans.push(span);
+        return true;
+    }
+
+    function restoreSpans() {
+        for (var i = 0; i < state.spans.length; i++) {
+            var span = state.spans[i];
+            if (span.parentNode && span.__gthx) {
+                span.parentNode.replaceChild(document.createTextNode(span.__gthx.orig), span);
+            }
+        }
+        state.spans.length = 0;
+    }
+
+    /* ------------------------------------------------------------ 翻译请求 */
+    function requestBatch(texts, from, to) {
+        var url = cfg.endpoint + '?client=' + encodeURIComponent(cfg.client) +
+            '&sl=' + encodeURIComponent(from || 'auto') +
+            '&tl=' + encodeURIComponent(to);
+        for (var i = 0; i < texts.length; i++) {
+            url += '&q=' + encodeURIComponent(texts[i]);
+        }
+
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.timeout = 20000;
+            xhr.onload = function () {
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    reject(new Error('HTTP ' + xhr.status));
+                    return;
+                }
+                var data;
+                try { data = JSON.parse(xhr.responseText); } catch (e) { reject(e); return; }
+                resolve(normalize(data, texts.length));
+            };
+            xhr.onerror = function () { reject(new Error('网络错误')); };
+            xhr.ontimeout = function () { reject(new Error('请求超时')); };
+            xhr.send(null);
+        });
+    }
+
+    /* 返回 [{ text, src }] ── 与传入的 texts 一一对应 */
+    function normalize(data, n) {
+        var out = [];
+        if (!data || !data.length) return out;
+        var rows = (typeof data[0] === 'string') ? [data] : data;
+        for (var i = 0; i < n; i++) {
+            var row = rows[i];
+            if (!row) { out.push(null); continue; }
+            if (typeof row === 'string') { out.push({ text: row, src: '' }); continue; }
+            out.push({ text: row[0] || '', src: row[1] || '' });
+        }
+        return out;
+    }
+
+    /* --------------------------------------------------------------- 缓存 */
+    function cacheKey(lang, text) { return lang + '\u0000' + text; }
+
+    function cacheGet(lang, text) {
+        var v = state.cache[cacheKey(lang, text)];
+        return v || null;
+    }
+
+    function cacheSet(lang, text, row) {
+        state.cache[cacheKey(lang, text)] = row;
+        state.cacheDirty = true;
+        scheduleCacheSave();
+    }
+
+    function loadCache() {
+        try {
+            var raw = localStorage.getItem(cfg.cache_key);
+            if (raw) state.cache = JSON.parse(raw) || {};
+        } catch (e) { state.cache = {}; }
+    }
+
+    var saveTimer = 0;
+    function scheduleCacheSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveCache, 2000);
+    }
+
+    function saveCache() {
+        if (!state.cacheDirty) return;
+        state.cacheDirty = false;
+        try {
+            var keys = Object.keys(state.cache);
+            if (keys.length > 800) {
+                var dropped = {};
+                for (var i = keys.length - 800; i < keys.length; i++) dropped[keys[i]] = state.cache[keys[i]];
+                state.cache = dropped;
+            }
+            localStorage.setItem(cfg.cache_key, JSON.stringify(state.cache));
+        } catch (e) { /* 隐私模式或超出配额，忽略 */ }
+    }
+
+    /* --------------------------------------------------------------- 状态存储 */
+    function saveState() {
+        try {
+            localStorage.setItem(cfg.storage_key, JSON.stringify({ lang: state.lang }));
+        } catch (e) { }
+    }
+
+    function loadState() {
+        try {
+            var raw = localStorage.getItem(cfg.storage_key);
+            if (raw) return JSON.parse(raw);
+        } catch (e) { }
+        // 兼容旧版 gtranslate 留下的记录
+        try {
+            var old = localStorage.getItem('__GT_TRANSLATE_LANGS');
+            if (old) {
+                var o = JSON.parse(old);
+                if (o && o.tgtLang) return { lang: o.tgtLang };
+            }
+        } catch (e) { }
+        return null;
+    }
+
+    /* ------------------------------------------------------------ 主翻译流程 */
+    function chunk(list) {
+        var batches = [], cur = [], chars = 0;
+        for (var i = 0; i < list.length; i++) {
+            var seg = list[i];
+            if (cur.length && (chars + seg.core.length > cfg.batch_chars || cur.length >= cfg.batch_items)) {
+                batches.push(cur); cur = []; chars = 0;
+            }
+            cur.push(seg);
+            chars += seg.core.length;
+        }
+        if (cur.length) batches.push(cur);
+        return batches;
+    }
+
+    function runTranslation(gen, lang) {
+        var segs = [];
+        scan(document.body, segs);
+        if (gen !== state.gen) return Promise.resolve();
+
+        var pending = [];
+        for (var i = 0; i < segs.length; i++) {
+            var hit = cacheGet(lang, segs[i].core);
+            if (hit) applySeg(segs[i], hit);
+            else pending.push(segs[i]);
+        }
+        log('待翻译文本段：', pending.length);
+
+        var batches = chunk(pending);
+        var bi = 0, fails = 0;
+
+        function step() {
+            if (gen !== state.gen || bi >= batches.length || fails >= 2) {
+                return Promise.resolve();
+            }
+            var batch = batches[bi++];
+            var uniq = [], index = {};
+            for (var k = 0; k < batch.length; k++) {
+                var c = batch[k].core;
+                if (!(c in index)) { index[c] = uniq.length; uniq.push(c); }
+            }
+            return requestBatch(uniq, cfg.default_language, lang).then(function (rows) {
+                for (var k = 0; k < uniq.length; k++) {
+                    var row = rows[k];
+                    if (!row || !row.text) continue;
+                    var val = { text: row.text, src: row.src || '' };
+                    if (row.src) state.detected = row.src;
+                    cacheSet(lang, uniq[k], val);
+                }
+                // 语言已经切换，这批结果作废（缓存仍保留，下次可用）
+                if (gen !== state.gen) return;
+                for (var j = 0; j < batch.length; j++) {
+                    var row2 = rows[index[batch[j].core]];
+                    if (row2 && row2.text) applySeg(batch[j], row2);
+                }
+                fails = 0;
+                updateUI();
+                return sleep(cfg.request_gap).then(step);
+            }, function (err) {
+                fails++;
+                log('翻译失败：', err && err.message);
+                if (gen !== state.gen) return;
+                return step();
+            });
+        }
+
+        return step().then(function () {
+            if (gen === state.gen) updateUI();
+        });
+    }
+
+    function translatePage() {
+        if (!state.lang) return Promise.resolve();
+        if (state.running) { state.again = true; return state.promise; }
+
+        var gen = state.gen;
+        var lang = state.lang;
+        state.running = true;
+        state.promise = runTranslation(gen, lang).then(function () {
+            state.running = false;
+            updateUI();
+            if (gen === state.gen) fire('gthx:done', { lang: lang, count: state.spans.length });
+            if (state.again) { state.again = false; translatePage(); }
+            return state.lang;
+        }, function (err) {
+            state.running = false;
+            updateUI();
+            fire('gthx:error', { error: err });
+        });
+        return state.promise;
+    }
+
+    /* ------------------------------------------------------------------ API */
+    function translate(lang) {
+        if (!lang) return restore();
+        if (state.lang !== lang) {
+            state.gen++;
+            restoreSpans();
+            state.lang = lang;
+        }
+        saveState();
+        updateUI();
+        buildTip();
+        return translatePage();
+    }
+
+    function restore() {
+        state.gen++;
+        state.lang = '';
+        restoreSpans();
+        hideTip(true);
+        saveState();
+        updateUI();
+        fire('gthx:restore', {});
+        return Promise.resolve();
+    }
+
+    function fire(name, detail) {
+        try {
+            var ev;
+            if (typeof CustomEvent === 'function') {
+                ev = new CustomEvent(name, { detail: detail, bubbles: true });
+            } else {
+                ev = document.createEvent('CustomEvent');
+                ev.initCustomEvent(name, true, true, detail);
+            }
+            document.dispatchEvent(ev);
+        } catch (e) { }
+    }
+
+    /* ---------------------------------------------------------- 语言切换器 */
+    function buildUI() {
+        if (!cfg.ui || state.uiBuilt) return;
+        state.uiBuilt = true;
+
+        var langs = cfg.languages || [];
+        var root = document.createElement('div');
+        root.className = 'gthx-sw';
+        root.setAttribute('translate', 'no');
+        root.setAttribute('data-pos', cfg.ui_position || 'top-right');
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gthx-sw-cur';
+        btn.setAttribute('aria-haspopup', 'true');
+        var nameEl = document.createElement('span');
+        nameEl.className = 'gthx-sw-name';
+        var arrow = document.createElement('span');
+        arrow.className = 'gthx-sw-arrow';
+        btn.appendChild(nameEl);
+        btn.appendChild(arrow);
+
+        var menu = document.createElement('div');
+        menu.className = 'gthx-sw-menu';
+        menu.setAttribute('role', 'menu');
+
+        var all = [{ code: '', name: '原文' }];
+        for (var i = 0; i < langs.length; i++) {
+            all.push({ code: langs[i], name: langName(langs[i]) });
+        }
+
+        all.forEach(function (item) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('role', 'menuitem');
+            b.setAttribute('data-lang', item.code);
+            b.textContent = item.name;
+            b.addEventListener('click', function (e) {
+                e.stopPropagation();
+                root.classList.remove('gthx-open');
+                if (item.code) translate(item.code); else restore();
+            });
+            menu.appendChild(b);
+        });
+
+        root.appendChild(btn);
+        root.appendChild(menu);
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            root.classList.toggle('gthx-open');
+        });
+        document.addEventListener('click', function () { root.classList.remove('gthx-open'); });
+
+        var host = cfg.ui_container ? document.querySelector(cfg.ui_container) : null;
+        if (host) {
+            root.classList.add('gthx-static');
+            host.appendChild(root);
+        } else {
+            document.body.appendChild(root);
+        }
+
+        state.uiRoot = root;
+        state.uiName = nameEl;
+        updateUI();
+    }
+
+    function updateUI() {
+        if (!state.uiRoot) return;
+        var label = state.lang ? langName(state.lang) : '原文';
+        if (state.running && state.lang) label += ' …';
+        state.uiName.textContent = label;
+        var buttons = state.uiRoot.querySelectorAll('[data-lang]');
+        for (var i = 0; i < buttons.length; i++) {
+            var code = buttons[i].getAttribute('data-lang');
+            buttons[i].setAttribute('aria-selected', code === (state.lang || '') ? 'true' : 'false');
+        }
+    }
+
+    /* ---------------------------------------------------------- 动态内容监听 */
+    var mutationTimer = 0;
+
+    function startObserver() {
+        if (!cfg.observe || !window.MutationObserver || !document.body) return;
+
+        var obs = new MutationObserver(function (muts) {
+            if (!state.lang) return;
+            var interesting = false;
+            for (var i = 0; i < muts.length; i++) {
+                var m = muts[i];
+                if (m.type === 'characterData') {
+                    if (!segOf(m.target.parentNode)) { interesting = true; break; }
+                    continue;
+                }
+                if (m.target && m.target.nodeType === 1 && m.target.closest && m.target.closest('.gthx-tip,.gthx-sw')) continue;
+                // 忽略我们自己替换文本节点产生的变动
+                var ours = true;
+                for (var a = 0; a < m.addedNodes.length; a++) {
+                    var an = m.addedNodes[a];
+                    if (!(an.nodeType === 1 && an.classList && an.classList.contains('gthx-s'))) { ours = false; break; }
+                }
+                if (ours) {
+                    for (var r = 0; r < m.removedNodes.length; r++) {
+                        if (m.removedNodes[r].nodeType !== 3) { ours = false; break; }
+                    }
+                }
+                if (!ours) { interesting = true; break; }
+            }
+            if (!interesting) return;
+            clearTimeout(mutationTimer);
+            mutationTimer = setTimeout(function () {
+                if (state.lang) translatePage();
+            }, 500);
+        });
+
+        obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+
+    /* ------------------------------------------------------------ 初始化 */
+    function ready(fn) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', fn);
+        } else {
+            fn();
+        }
+    }
+
+    function init() {
+        if (window.gthxSettings) extend(cfg, window.gthxSettings);
+        normalizeCfg();
+        injectCSS();
+        buildTip();
+        bindHover();
+        loadCache();
+        buildUI();
+
+        var saved = loadState();
+        // 明确指定了 auto_translate / initial_language 时，优先于上次选择
+        var lang = cfg.initial_language || (saved && saved.lang) || '';
+
+        if (!lang && cfg.detect_browser_language && cfg.languages && cfg.languages.length) {
+            var cand = String(navigator.language || navigator.userLanguage || '').toLowerCase();
+            for (var i = 0; i < cfg.languages.length; i++) {
+                var l = String(cfg.languages[i]).toLowerCase();
+                if (l === cand || l.split('-')[0] === cand.split('-')[0]) { lang = cfg.languages[i]; break; }
+            }
+        }
+
+        if (lang) translate(lang);
+        else updateUI();
+
+        startObserver();
+    }
+
+    /* ------------------------------------------------------------ 导出 */
+    var GTHX = {
+        version: VERSION,
+        translate: translate,
+        restore: restore,
+        toggle: function () { return state.lang ? restore() : translate((cfg.languages || ['en'])[0]); },
+        config: function (o) {
+            extend(cfg, o);
+            normalizeCfg();
+            if (o && o.ui === true && !state.uiBuilt) buildUI();
+            if (o && (o.show_original !== undefined || o.tooltip !== undefined)) {
+                for (var i = 0; i < state.spans.length; i++) {
+                    var sp = state.spans[i];
+                    if (!sp.parentNode) continue;
+                    if (cfg.tooltip && cfg.hover_highlight) sp.classList.add('gthx-hl');
+                    else sp.classList.remove('gthx-hl');
+                }
+                if (!cfg.tooltip) hideTip(true);
+            }
+            updateUI();
+            return cfg;
+        },
+        get language() { return state.lang; },
+        get detected() { return state.detected; },
+        get settings() { return cfg; }
+    };
+
+    window.GTHX = GTHX;
+
+    var run = function () { if (cfg.auto_init !== false) init(); };
+    ready(run);
+
+})(window, document);

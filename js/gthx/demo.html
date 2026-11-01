@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gthx.js — 网页翻译，悬停看原文</title>
+<style>
+    :root { color-scheme: light; }
+    body {
+        margin: 0 auto; padding: 56px 20px 120px; max-width: 680px;
+        font: 17px/1.8 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        color: #22262b; background: #fcfcfd;
+    }
+    h1 { font-size: 32px; line-height: 1.28; margin: 0 0 10px; letter-spacing: -.01em; }
+    h2 { font-size: 20px; margin: 34px 0 10px; }
+    p { margin: 0 0 18px; }
+    .meta { color: #6b7280; font-size: 13px; margin-bottom: 30px; }
+    a { color: #1a73e8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    blockquote { margin: 22px 0; padding: 6px 18px; border-left: 3px solid #dfe3e8; color: #4b5563; }
+    ul { margin: 0 0 18px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    code { background: #f1f3f4; padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+    hr { border: 0; border-top: 1px solid #eceef1; margin: 36px 0; }
+</style>
+</head>
+<body>
+
+<h1>How machine translation quietly changed the web</h1>
+<p class="meta">A sample article — move the mouse over a translated sentence to see the original.</p>
+
+<p>For most of the internet's history, language was a hard border. A reader in Shanghai could not read
+a German forum thread, and a developer in Berlin could not read a Japanese API reference. Machine
+translation did not remove that border, but it made it porous.</p>
+
+<p>The first generation of browser translators worked sentence by sentence, and they were honest about
+it: you hovered over a paragraph and the original sentence appeared in a small white bubble. That
+gesture is what this page brings back.</p>
+
+<h2>What the old widget did</h2>
+
+<p>Google's website translator replaced the text of a block element with its translation and kept the
+original in memory. When you moved the mouse over the translated sentence, a tooltip fetched the
+source text and displayed it above the paragraph.</p>
+
+<blockquote>Readers trusted the translation more when they could check it, one sentence at a time.</blockquote>
+
+<p>The widget on this page is a rewrite of that behaviour. It talks to the same translation service,
+but it keeps the source text attached to every translated fragment, so the tooltip is instant: no
+second request, no waiting.</p>
+
+<h2>Things it handles</h2>
+
+<ul>
+    <li>Text inside <a href="#">links</a>, emphasis and inline code keeps working.</li>
+    <li>Dynamic content added later is translated automatically.</li>
+    <li>Switching language restores the page instead of translating the translation.</li>
+    <li>Long documents are batched into a few requests and cached in <code>localStorage</code>.</li>
+</ul>
+
+<hr>
+
+<p>Use the switcher in the top-right corner to change the target language, or pick the original from it
+to get the page back exactly as it was written.</p>
+
+<!-- ------------------------------------------------------------------ -->
+<script>
+window.gthxSettings = {
+    default_language: 'auto',        // 原文语言，auto = 自动检测
+    languages: ['zh-CN', 'en', 'ja'],// 切换器里可选的语言
+    auto_translate: 'zh-CN',         // 启动后自动翻译成简体中文；'' 或 false = 不自动翻译
+    show_original: true,             // true = 悬停译文显示原文；false = 只翻译、不弹气泡
+    ui_position: 'top-right'         // 切换器位置
+};
+</script>
+<script src="gthx.js" charset="utf-8"></script>
+</body>
+</html>

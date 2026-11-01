@@ -1,0 +1,50 @@
+{
+    "repo": {
+        "owner": "liijjj",
+        "name": "libs",
+        "pages": "https://liijjj.github.io/libs/",
+        "cdn": "https://cdn.jsdelivr.net/gh/liijjj/libs"
+    },
+    "items": [
+        {
+            "id": "gthx",
+            "name": "gthx.js",
+            "desc": "网页翻译 + 悬停显示原文，单文件、无依赖，自带语言切换器",
+            "file": "js/gthx/gthx.js",
+            "version": "1.0.0",
+            "demo": "js/gthx/demo.html",
+            "doc": "js/gthx/README.md",
+            "tags": ["translate", "i18n", "tooltip"]
+        },
+        {
+            "id": "mylib",
+            "name": "mylib",
+            "desc": "个人用户脚本库（油猴 / 非油猴环境通用）",
+            "file": "js/my/mylib.js",
+            "version": "",
+            "demo": "",
+            "doc": "",
+            "tags": ["userscript", "personal"]
+        },
+        {
+            "id": "crypto-js",
+            "name": "crypto-js",
+            "desc": "加密算法库（MD5 / SHA / AES 等），第三方",
+            "file": "js/others/crypto-js-4.1.1.min.js",
+            "version": "4.1.1",
+            "demo": "",
+            "doc": "",
+            "tags": ["third-party", "crypto"]
+        },
+        {
+            "id": "sweetalert2",
+            "name": "SweetAlert2",
+            "desc": "漂亮的弹窗替代 alert，第三方",
+            "file": "js/others/sweetalert2-11.10.3.min.js",
+            "version": "11.10.3",
+            "demo": "",
+            "doc": "",
+            "tags": ["third-party", "ui"]
+        }
+    ]
+}

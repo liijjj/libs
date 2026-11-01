@@ -1,0 +1,44 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JS 语法
+        run: |
+          set -uo pipefail
+          fail=0
+          while IFS= read -r f; do
+            echo "check $f"
+            node --check "$f" || fail=1
+          done < <(find js -name '*.js' -not -path '*/archive/*' | sort)
+          exit $fail
+
+      - name: libs.json 清单与文件是否对得上
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('libs.json', 'utf8'));
+          let bad = 0;
+          for (const it of data.items || []) {
+            for (const key of ['file', 'demo', 'doc']) {
+              const p = it[key];
+              if (p && !fs.existsSync(p)) {
+                console.log('missing ' + key + ': ' + p + '  (item: ' + it.id + ')');
+                bad = 1;
+              }
+            }
+          }
+          if (!bad) console.log('libs.json ok: ' + (data.items || []).length + ' items');
+          process.exit(bad);
+          NODE

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>libs — 在线脚本库</title>
+<style>
+    :root {
+        color-scheme: light;
+        --bg: #fbfbfc;
+        --fg: #1f2328;
+        --muted: #6b7280;
+        --card: #ffffff;
+        --border: #e6e8eb;
+        --accent: #1a73e8;
+        --code-bg: #f3f5f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; padding: 52px 20px 96px; background: var(--bg); color: var(--fg);
+        font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { margin-bottom: 34px; }
+    h1 { font-size: 27px; margin: 0 0 8px; letter-spacing: -.01em; }
+    .sub { color: var(--muted); font-size: 14px; }
+    .sub code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0 26px; }
+    input[type="search"] {
+        flex: 1 1 220px; min-width: 180px; padding: 9px 12px; font: inherit; font-size: 14px;
+        border: 1px solid var(--border); border-radius: 8px; background: #fff; color: inherit; outline: none;
+    }
+    input[type="search"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,115,232,.12); }
+    .grid { display: grid; gap: 14px; }
+    .card {
+        background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+        padding: 16px 18px; box-shadow: 0 1px 2px rgba(16,24,40,.03);
+    }
+    .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .ver { font-size: 11.5px; font-weight: 500; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+    .desc { color: #4b5563; font-size: 13.5px; margin: 0 0 12px; }
+    .tag { font-size: 11.5px; color: var(--muted); background: var(--code-bg); border-radius: 5px; padding: 1px 6px; margin-right: 6px; }
+    .urlrow { display: flex; gap: 8px; align-items: stretch; }
+    .url {
+        flex: 1; min-width: 0; background: var(--code-bg); border-radius: 7px; padding: 7px 10px;
+        font: 12.5px/1.5 ui-monospace, Consolas, "SFMono-Regular", monospace; color: #334155;
+        overflow-x: auto; white-space: nowrap;
+    }
+    .url::-webkit-scrollbar { height: 0; }
+    button {
+        font: inherit; font-size: 12.5px; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+        border: 1px solid var(--border); background: #fff; color: var(--accent); white-space: nowrap;
+    }
+    button:hover { border-color: #c9d6e8; background: #f7faff; }
+    button.done { color: #137333; border-color: #c3e6cb; background: #f1f9f3; }
+    .links { margin-top: 10px; font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .links a { color: var(--accent); text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+    footer { margin-top: 42px; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+    footer code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+    .empty { color: var(--muted); font-size: 14px; padding: 24px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>libs</h1>
+        <div class="sub">
+            在线脚本库，通过 jsDelivr 对外提供：<code class="host">cdn.jsdelivr.net/gh/…</code>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <input type="search" id="q" placeholder="搜索名字、说明或标签…" autocomplete="off">
+    </div>
+
+    <div class="grid" id="list">
+        <div class="empty">加载中…</div>
+    </div>
+
+    <footer>
+        固定版本用 <code>@v1.0.0</code>，跟随最新用 <code>@main</code>；<code>@main</code> 有缓存，
+        更新后可访问 <code>purge.jsdelivr.net</code> 刷新。清单在 <code>libs.json</code>。
+    </footer>
+</div>
+
+<script>
+(function () {
+    var listEl = document.getElementById('list');
+    var qEl = document.getElementById('q');
+    var meta = { owner: '', repo: '', cdn: 'https://cdn.jsdelivr.net/gh' };
+    var items = [];
+
+    function cdnBase(version) {
+        return meta.cdn + '/' + meta.owner + '/' + meta.repo + '@' + (version || 'main') + '/';
+    }
+
+    function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+    }
+
+    function copy(text, btn) {
+        function done() {
+            var old = btn.textContent;
+            btn.textContent = '已复制';
+            btn.classList.add('done');
+            setTimeout(function () { btn.textContent = old; btn.classList.remove('done'); }, 1200);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, fallback);
+        } else fallback();
+
+        function fallback() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { }
+            document.body.removeChild(ta);
+        }
+    }
+
+    function card(item) {
+        var box = el('article', 'card');
+        var h = el('h2');
+        h.appendChild(el('span', null, item.name || item.id));
+        if (item.version) h.appendChild(el('span', 'ver', 'v' + item.version));
+        box.appendChild(h);
+        if (item.desc) box.appendChild(el('p', 'desc', item.desc));
+
+        var tags = el('div');
+        (item.tags || []).forEach(function (t) { tags.appendChild(el('span', 'tag', t)); });
+        if (tags.childNodes.length) box.appendChild(tags);
+
+        var url = cdnBase(item.version) + item.file;
+        var row = el('div', 'urlrow');
+        var u = el('div', 'url', url);
+        var btn = el('button', null, '复制');
+        btn.type = 'button';
+        btn.addEventListener('click', function () { copy(url, btn); });
+        row.appendChild(u);
+        row.appendChild(btn);
+        box.appendChild(row);
+
+        var links = el('div', 'links');
+        if (item.demo) {
+            var a = el('a', null, '在线演示 →');
+            a.href = item.demo;
+            links.appendChild(a);
+        }
+        if (item.doc) {
+            var d = el('a', null, '说明 →');
+            d.href = typeof item.doc === 'string' && /\.md$/.test(item.doc)
+                ? 'https://github.com/' + meta.owner + '/' + meta.repo + '/blob/main/' + item.doc
+                : item.doc;
+            links.appendChild(d);
+        }
+        if (item.version) {
+            var p = el('a', null, '最新版（@main）→');
+            p.href = cdnBase('main') + item.file;
+            links.appendChild(p);
+        }
+        if (links.childNodes.length) box.appendChild(links);
+        return box;
+    }
+
+    function render() {
+        var q = (qEl.value || '').trim().toLowerCase();
+        listEl.textContent = '';
+        var shown = 0;
+        items.forEach(function (item) {
+            var hay = [item.name, item.id, item.desc, (item.tags || []).join(' ')].join(' ').toLowerCase();
+            if (q && hay.indexOf(q) === -1) return;
+            listEl.appendChild(card(item));
+            shown++;
+        });
+        if (!shown) listEl.appendChild(el('div', 'empty', '没有匹配的库。'));
+    }
+
+    // 从当前地址推断 owner / repo（改名后也不用改这里）
+    var host = location.hostname;
+    if (/\.github\.io$/.test(host)) {
+        meta.owner = host.replace(/\.github\.io$/, '');
+        meta.repo = location.pathname.split('/').filter(Boolean)[0] || '';
+    }
+
+    fetch('libs.json', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.repo && data.repo.owner) meta.owner = data.repo.owner;
+            if (data.repo && data.repo.name) meta.repo = data.repo.name;
+            if (data.repo && data.repo.cdn) meta.cdn = data.repo.cdn;
+            document.querySelector('.host').textContent =
+                meta.cdn.replace(/^https?:\/\//, '') + '/' + meta.owner + '/' + meta.repo + '@main/…';
+            items = data.items || [];
+            render();
+        })
+        .catch(function () {
+            listEl.textContent = '';
+            listEl.appendChild(el('div', 'empty', '读取 libs.json 失败。'));
+        });
+
+    qEl.addEventListener('input', render);
+})();
+</script>
+</body>
+</html>
