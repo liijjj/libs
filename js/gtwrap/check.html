@@ -55,6 +55,7 @@ setTimeout(function () {
         var bs = getComputedStyle(barWrap);
         say('banner display=' + bs.display + ' height=' + bs.height);
         say('body top=' + getComputedStyle(document.body).top);
+        say('tooltip style: max-width=' + getComputedStyle(tip).maxWidth + ' font=' + getComputedStyle(tip).fontSize);
 
         // 一次悬停：气泡应当被拉到目标元素上方
         var target = document.getElementById('target');

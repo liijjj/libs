@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.1.1';
+    var VERSION = '1.2.0';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -34,6 +34,9 @@
         languages: ['zh-CN', 'en', 'ja'],
         position: 'bottom-left',      // bottom-left / bottom-right / top-left / top-right
         hide_banner: true,            // 去掉谷歌注入的顶部横幅（以及 body 的 40px 下移）
+        show_original: true,          // false = 完全隐藏谷歌的原文气泡
+        tooltip_size: 'compact',      // compact = 小号气泡；google = 保持谷歌原样
+        tooltip_position: 'above',    // above / below / corner（corner = 钉在右下角，永不压住正文）
         auto_translate: '',           // 'zh-CN' = 打开就翻；空 = 不自动
         restore_label: '原文',
         storage_key: '__GTWRAP_LANG',
@@ -89,6 +92,15 @@
             hideBanner ? 'body > .skiptranslate:has(> iframe.VIpgJd-ZVi9od-ORHb-OEVmcd){' + bannerOff + '}' : '',
             hideBanner ? 'body > .skiptranslate[style*="height:40px"],body > .skiptranslate[style*="height: 40px"]{' + bannerOff + '}' : '',
             hideBanner ? 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{height:0 !important;min-height:0 !important}' : '',
+
+            /* 原文气泡：可隐藏 / 可缩小 */
+            cfg.show_original === false ? '#goog-gt-tt{display:none !important}' : '',
+            cfg.show_original !== false && cfg.tooltip_size !== 'google' ? [
+                '#goog-gt-tt{max-width:320px !important;padding:6px 9px !important;border-radius:6px !important;',
+                'box-shadow:0 2px 10px rgba(0,0,0,.16) !important;font-size:12.5px !important;line-height:1.5 !important}',
+                '#goog-gt-tt *{font-size:12.5px !important}',
+                '#goog-gt-tt div[dir="ltr"],#goog-gt-tt .goog-gt-tt-id{max-width:320px !important}'
+            ].join('') : '',
 
             /* 官方控件本体挪到屏幕外，只留着给我们的 UI 驱动 */
             '#gtwrap-host{position:fixed !important;left:-9999px !important;top:-9999px !important;',
@@ -267,9 +279,13 @@
     }
 
     function restore() {
-        // 1) 清 cookie（谷歌靠 googtrans 记住语言，不清的话刷新又翻回去）
+        // 回滚成简单版：只把下拉设回"选择语言"，不刷新、不碰 cookie
+        return setLanguage('');
+    }
+
+    /* 想要"彻底回到原文"（清 cookie + 必要时刷新）时手动调这个 */
+    function restoreHard() {
         clearCookie();
-        // 2) 试官方 select 的空选项
         if (state.combo) {
             state.combo.value = '';
             state.combo.dispatchEvent(new Event('change', { bubbles: true }));
@@ -278,7 +294,6 @@
         saveLang('');
         updateUI();
         try { sessionStorage.setItem('__GTWRAP_SKIP_AUTO', '1'); } catch (e) { }
-        // 3) 官方组件有时忽略空选项：给它 600ms，还没回到原文就重载（cookie 已清，重载即原文）
         setTimeout(function () {
             if (state.combo && state.combo.value) location.reload();
         }, 600);
@@ -330,18 +345,34 @@
             if (getComputedStyle(wrap).display === 'none') return;
             if (!el.getBoundingClientRect) return;
 
-            var r = el.getBoundingClientRect();
-            if (!r.width && !r.height) return;
-
             var vw = window.innerWidth, vh = window.innerHeight;
-            var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
-            left = Math.max(8, Math.min(left, vw - wr.width - 8));
-            var top = r.top - wr.height - 10;
-            if (top < 8) top = r.bottom + 10;
-            if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
+            var nx, ny;
 
-            var nx = Math.round(left + window.pageXOffset);
-            var ny = Math.round(top + window.pageYOffset);
+            if (cfg.tooltip_position === 'corner') {
+                // 钉在右下角（胶囊上方），永远不会压住正文
+                nx = Math.round(vw - wr.width - 16 + window.pageXOffset);
+                ny = Math.round(vh - wr.height - 56 + window.pageYOffset);
+            } else {
+                var r = el.getBoundingClientRect();
+                if (!r.width && !r.height) return;
+
+                var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
+                left = Math.max(8, Math.min(left, vw - wr.width - 8));
+
+                var top;
+                if (cfg.tooltip_position === 'below') {
+                    top = r.bottom + 10;
+                    if (top + wr.height > vh - 8) top = r.top - wr.height - 10;
+                } else {
+                    top = r.top - wr.height - 10;
+                    if (top < 8) top = r.bottom + 10;
+                }
+                if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
+
+                nx = Math.round(left + window.pageXOffset);
+                ny = Math.round(top + window.pageYOffset);
+            }
+
             // 已经在目标位置附近就别再动，避免"挪一下→鼠标下换元素→再挪"的抖动
             if (Math.abs(wr.left + window.pageXOffset - nx) < 4 && Math.abs(wr.top + window.pageYOffset - ny) < 4) return;
 
@@ -377,6 +408,7 @@
         version: VERSION,
         setLanguage: setLanguage,
         restore: restore,
+        restoreHard: restoreHard,
         config: function (o) {
             extend(cfg, o);
             if (state.root) state.root.setAttribute('data-pos', cfg.position || 'bottom-left');
