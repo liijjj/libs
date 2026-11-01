@@ -47,12 +47,15 @@ GTWrap.ready;                  // 官方组件是否就绪
 官方组件翻译后会在页面顶部插一个 40px 的 iframe 并给 `<body>` 加 `top:40px`：
 
 ```css
-iframe.VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; }  /* 横幅本体 */
-html body { top: 0 !important; }                                /* 被顶下去的内容 */
-body > .skiptranslate { display: none !important; }             /* 横幅外层的 div */
+iframe.VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; }              /* 横幅本体（iframe） */
+body > .skiptranslate:has(> iframe.VIpgJd-ZVi9od-ORHb-OEVmcd) { display: none !important; }  /* 横幅外层 */
+body > .skiptranslate[style*="height:40px"] { display: none !important; }   /* 老的浏览器兜底 */
+html body { top: 0 !important; }                                            /* 被顶下去的内容 */
 ```
 
-只按类名精确命中横幅，不会误伤语言下拉用的那几个 iframe。
+**注意**：不能直接写 `body > .skiptranslate { display: none }`。原文气泡（`#goog-gt-tt`）的外层
+`div` 也是 `class="skiptranslate"`，一刀切会把气泡一起藏掉——表现就是"悬停文字变色了，但气泡不出现"。
+只认"里面装着横幅 iframe"的那一个（`:has()`）才安全。
 
 ## 为什么不用自己实现翻译
 
