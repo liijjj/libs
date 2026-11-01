@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>widget probe 2</title>
+<style>body{font:16px/1.7 system-ui;max-width:680px;margin:40px auto}</style>
+</head>
+<body>
+<h1>Raw Google widget probe 2</h1>
+<p>This paragraph exists so the translator has something to chew on for the probe run.</p>
+<p>A second paragraph with a <a href="#">link inside</a> the sentence.</p>
+
+<div id="google_translate_element"></div>
+<script>
+function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: 'zh-CN,en,ja',
+        autoDisplay: false
+    }, 'google_translate_element');
+
+    // 自动选中文，模拟用户操作
+    setTimeout(function () {
+        var sel = document.querySelector('.goog-te-combo');
+        if (sel) {
+            sel.value = 'zh-CN';
+            sel.dispatchEvent(new Event('change'));
+        }
+    }, 1200);
+
+    setTimeout(inspect, 5000);
+}
+
+function inspect() {
+    var out = [];
+    out.push('body.top="' + document.body.style.top + '"');
+    out.push('body.position=' + getComputedStyle(document.body).position);
+    out.push('combo=' + !!document.querySelector('.goog-te-combo'));
+    out.push('skiptranslate count=' + document.querySelectorAll('.skiptranslate').length);
+    out.push('iframes=' + Array.prototype.map.call(document.querySelectorAll('iframe'), function (f) {
+        return (f.className || '-') + '|' + (f.id || '-') + '|' + f.getBoundingClientRect().height;
+    }).join(' ; '));
+    out.push('tooltip=' + !!document.querySelector('#goog-gt-tt'));
+    out.push('gtStyle=' + !!document.querySelector('#goog-gt-style'));
+    out.push('highlighted=' + document.querySelectorAll('.goog-text-highlight').length);
+    out.push('firstP=' + document.querySelector('p').textContent.slice(0, 40));
+    document.title = out.join(' || ');
+}
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+</html>
