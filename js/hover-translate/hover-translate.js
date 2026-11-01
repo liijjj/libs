@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.3.1';
+    var VERSION = '1.4.0';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -142,6 +142,7 @@
         lang: '',        // 当前目标语言，'' = 原文
         detected: '',    // 最近一次识别出的原文语言
         spans: [],       // 我们创建的所有译文 span
+        empties: [],     // 被引擎整句重排后变成空的片段（只有文本节点，没有 span）
         running: false,
         again: false,
         promise: null,
@@ -527,7 +528,7 @@
                 undefined, undefined, { text: info.text, range: info.ranges[0] });
             for (var m = 1; m < parts.length; m++) {
                 applySeg(parts[m], { text: '', src: row.src }, undefined, undefined,
-                    { text: info.text, range: info.ranges[m] });
+                    { text: info.text, range: info.ranges[m] }, true);
             }
             return;
         }
@@ -535,25 +536,42 @@
             var text = pieces[i].replace(/^\s+|\s+$/g, '');
             var lead = parts[i].lead;
             var trail = parts[i].trail;
-            if (i > 0 && cjkEdge(pieces[i - 1], true) && cjkEdge(text, false)) lead = '';
-            if (i < parts.length - 1 && cjkEdge(text, true) && cjkEdge(pieces[i + 1], false)) trail = '';
+            var prev = i > 0 ? pieces[i - 1].replace(/\s+$/, '') : '';
+            var next = i < parts.length - 1 ? pieces[i + 1].replace(/^\s+/, '') : '';
+
+            // 中文原文片段之间本来没有空格，译成英文后需要补上；中英各自两端都不该有
+            if (!lead && needsSpace(prev, text)) lead = ' ';
+            if (!trail && needsSpace(text, next)) trail = ' ';
+            if (i > 0 && cjkEdge(prev, true) && cjkEdge(text, false)) lead = '';
+            if (i < parts.length - 1 && cjkEdge(text, true) && cjkEdge(next, false)) trail = '';
+
             applySeg(parts[i], { text: text, src: row.src }, lead, trail,
-                { text: info.text, range: info.ranges[i] });
+                { text: info.text, range: info.ranges[i] }, text === '');
         }
     }
 
     /* ------------------------------------------------------------ 译文应用 */
-    function applySeg(seg, row, lead, trail, info) {
+    function applySeg(seg, row, lead, trail, info, empty) {
         var node = seg.node;
         var parent = node.parentNode;
         if (!parent || node.nodeValue !== seg.raw) return false;
+
+        var l = lead === undefined ? seg.lead : lead;
+        var t = trail === undefined ? seg.trail : trail;
+
+        // 译文把这一段的文字挪到相邻片段去了（引擎整句重排）：留个空文本节点，
+        // 不生成 span，避免"空片段"在行首变成一个假的悬停热区
+        if (empty) {
+            node.nodeValue = l + t;
+            state.empties.push({ node: node, orig: seg.raw });
+            return true;
+        }
 
         var span = document.createElement('span');
         span.className = 'ht-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' ht-hl' : '');
         span.setAttribute('translate', 'no');
         var out = (row.text === undefined || row.text === null) ? seg.core : row.text;
-        span.textContent = (lead === undefined ? seg.lead : lead) + out +
-            (trail === undefined ? seg.trail : trail);
+        span.textContent = l + out + t;
         span.__ht = {
             orig: seg.raw,
             core: seg.core,
@@ -576,6 +594,14 @@
         return CJK_CHAR.test(atEnd ? s.charAt(s.length - 1) : s.charAt(0));
     }
 
+    /* 反过来：中文原文片段拼成英文时，需要补一个空格 */
+    function needsSpace(a, b) {
+        if (!a || !b) return false;
+        var x = a.charAt(a.length - 1), y = b.charAt(0);
+        if (/[\s\u3000]/.test(x) || /[\s\u3000]/.test(y)) return false;
+        return /[A-Za-z0-9,;:.!?%)\]]/.test(x) && /[A-Za-z0-9(\[]/.test(y);
+    }
+
     function restoreSpans() {
         for (var i = 0; i < state.spans.length; i++) {
             var span = state.spans[i];
@@ -584,6 +610,12 @@
             }
         }
         state.spans.length = 0;
+
+        for (var e = 0; e < state.empties.length; e++) {
+            var it = state.empties[e];
+            if (it.node) it.node.nodeValue = it.orig;
+        }
+        state.empties.length = 0;
     }
 
     /* ------------------------------------------------------------ 翻译请求 */
