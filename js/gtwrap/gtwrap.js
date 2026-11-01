@@ -11,12 +11,22 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.0.0';
+    var VERSION = '1.1.0';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
         fr: '法语', de: '德语', es: '西班牙语', ru: '俄语', it: '意大利语',
         pt: '葡萄牙语', ar: '阿拉伯语', th: '泰语', vi: '越南语', id: '印尼语'
+    };
+
+    // 菜单里的国旗（Windows 上系统字体会把国旗显示成 CN / JP 两个字母）
+    var FLAGS = {
+        'zh-CN': '🇨🇳', 'zh-TW': '🇹🇼', en: '🇬🇧', ja: '🇯🇵', ko: '🇰🇷',
+        fr: '🇫🇷', de: '🇩🇪', es: '🇪🇸', ru: '🇷🇺', it: '🇮🇹',
+        pt: '🇵🇹', ar: '🇸🇦', th: '🇹🇭', vi: '🇻🇳', id: '🇮🇩',
+        hi: '🇮🇳', tr: '🇹🇷', nl: '🇳🇱', pl: '🇵🇱', uk: '🇺🇦',
+        sv: '🇸🇪', da: '🇩🇰', fi: '🇫🇮', no: '🇳🇴', cs: '🇨🇿',
+        el: '🇬🇷', he: '🇮🇱', fa: '🇮🇷', ms: '🇲🇾', tl: '🇵🇭'
     };
 
     var DEFAULTS = {
@@ -51,6 +61,12 @@
 
     function langName(code) {
         return NAMES[code] || code;
+    }
+
+    function langLabel(code) {
+        var flag = FLAGS[code] || '';
+        var name = NAMES[code] || code;
+        return (flag ? flag + ' ' : '') + name;
     }
 
     function pageLang() {
@@ -176,7 +192,7 @@
 
         var items = [{ code: '', name: cfg.restore_label }];
         for (var i = 0; i < cfg.languages.length; i++) {
-            items.push({ code: cfg.languages[i], name: langName(cfg.languages[i]) });
+            items.push({ code: cfg.languages[i], name: langLabel(cfg.languages[i]) });
         }
         items.forEach(function (item) {
             var b = document.createElement('button');
@@ -208,7 +224,7 @@
 
     function updateUI() {
         if (!state.root) return;
-        state.nameEl.textContent = state.lang ? langName(state.lang) : cfg.restore_label;
+        state.nameEl.textContent = state.lang ? langLabel(state.lang) : cfg.restore_label;
         var buttons = state.root.querySelectorAll('[data-lang]');
         for (var i = 0; i < buttons.length; i++) {
             buttons[i].setAttribute('aria-selected', buttons[i].getAttribute('data-lang') === state.lang ? 'true' : 'false');
@@ -222,11 +238,17 @@
     }
 
     function applyInitialLanguage() {
+        var skip = false;
+        try {
+            skip = sessionStorage.getItem('__GTWRAP_SKIP_AUTO') === '1';
+            if (skip) sessionStorage.removeItem('__GTWRAP_SKIP_AUTO');
+        } catch (e) { }
+
         // 官方组件可能已经按 cookie 恢复过语言，先同步过来
         state.lang = (state.combo && state.combo.value) || '';
         var saved = null;
         try { saved = localStorage.getItem(cfg.storage_key); } catch (e) { }
-        var want = cfg.auto_translate || saved || '';
+        var want = skip ? '' : (cfg.auto_translate || saved || '');
         if (!want || state.lang === want) { updateUI(); return; }
         if (cfg.languages.indexOf(want) < 0) { updateUI(); return; }
         setLanguage(want, true);
@@ -245,7 +267,33 @@
     }
 
     function restore() {
-        return setLanguage('');
+        // 1) 清 cookie（谷歌靠 googtrans 记住语言，不清的话刷新又翻回去）
+        clearCookie();
+        // 2) 试官方 select 的空选项
+        if (state.combo) {
+            state.combo.value = '';
+            state.combo.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        state.lang = '';
+        saveLang('');
+        updateUI();
+        try { sessionStorage.setItem('__GTWRAP_SKIP_AUTO', '1'); } catch (e) { }
+        // 3) 官方组件有时忽略空选项：给它 600ms，还没回到原文就重载（cookie 已清，重载即原文）
+        setTimeout(function () {
+            if (state.combo && state.combo.value) location.reload();
+        }, 600);
+        return true;
+    }
+
+    function clearCookie() {
+        var hosts = ['', location.hostname, '.' + location.hostname];
+        var paths = ['/', location.pathname];
+        for (var h = 0; h < hosts.length; h++) {
+            for (var p = 0; p < paths.length; p++) {
+                document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=' + paths[p] +
+                    (hosts[h] ? '; domain=' + hosts[h] : '');
+            }
+        }
     }
 
     function saveLang(code) {
@@ -260,9 +308,48 @@
         return state.lang || '';
     }
 
+    /* 谷歌的原文气泡会飘到很远的地方（有时甩到右边），这里把它拉回鼠标下面 */
+    function bindTooltipFix() {
+        var timers = [];
+        function place(el) {
+            var tt = document.querySelector('#goog-gt-tt');
+            if (!tt || !tt.parentNode) return;
+            var wrap = tt.parentNode;
+            var wr = wrap.getBoundingClientRect();
+            if (!wr.width || !wr.height) return;              // 还没显示
+            if (getComputedStyle(wrap).display === 'none') return;
+            if (!el.getBoundingClientRect) return;
+
+            var r = el.getBoundingClientRect();
+            if (!r.width && !r.height) return;
+
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
+            left = Math.max(8, Math.min(left, vw - wr.width - 8));
+            var top = r.top - wr.height - 10;
+            if (top < 8) top = r.bottom + 10;
+            if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
+
+            wrap.style.left = Math.round(left + window.pageXOffset) + 'px';
+            wrap.style.top = Math.round(top + window.pageYOffset) + 'px';
+        }
+
+        document.addEventListener('mouseover', function (e) {
+            var el = e.target;
+            if (!el || el.nodeType !== 1) return;
+            for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+            timers = [
+                setTimeout(function () { place(el); }, 60),
+                setTimeout(function () { place(el); }, 350),
+                setTimeout(function () { place(el); }, 900)
+            ];
+        }, true);
+    }
+
     function init() {
         if (window.gtwrapSettings) extend(cfg, window.gtwrapSettings);
         injectCSS();
+        bindTooltipFix();
         loadWidget();
     }
 
