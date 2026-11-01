@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.0';
+    var VERSION = '2.0.0';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -59,6 +59,11 @@
         auto_init: true,                 // 是否在 DOM 就绪后自动初始化
 
         endpoint: 'https://clients5.google.com/translate_a/t',
+        html_endpoint: 'https://translate-pa.googleapis.com/v1/translateHtml',
+        api_key: 'AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520',
+        mode: 'text',                    // text = 文本+标记（默认，任何页面都能用）；html = 官方 translateHtml（受 CORS 限制，通常只在扩展/代理里可用）
+        html_batch_chars: 30000,         // 单次 POST 里 HTML 的总字符数
+        html_batch_items: 16,            // 单次 POST 里最多几块
         client: 'dict-chrome-ex',
         unit_bytes: 8000,                // 一个"块"（p/li/td…）最多多少编码字节，整段一起翻
         batch_bytes: 11000,              // 单次请求 URL 里 q 的总编码字节（实测 12KB 是上限）
@@ -75,7 +80,7 @@
         show_original: null,             // tooltip 的别名：false = 只翻译、不弹原文气泡
         hover_highlight: true,           // 悬停时给译文一层浅色底
         hover_delay: 0,                  // 显示延迟（毫秒）
-        hide_delay: 60,                  // 隐藏延迟（毫秒）
+        hide_delay: 300,                 // 隐藏延迟（毫秒）：留出把鼠标移进气泡的时间
         source_label: '原文',
 
         observe: true,                   // 监听动态内容并自动翻译
@@ -172,12 +177,12 @@
             'box-shadow:0 6px 24px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.08);',
             'padding:9px 13px 10px;font:400 14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;',
             'text-align:left;word-break:break-word;overflow-wrap:break-word;',
-            'pointer-events:none;opacity:0;visibility:hidden;transform:translateY(3px);',
+            'pointer-events:auto;opacity:0;visibility:hidden;transform:translateY(3px);user-select:text;',
             'transition:opacity .12s ease,transform .12s ease,visibility .12s}',
 
             '.ht-tip.ht-on{opacity:1;visibility:visible;transform:none}',
             '.ht-tip .ht-tip-l{font-size:11px;line-height:1.4;color:#80868b;margin:0 0 3px;letter-spacing:.02em}',
-            '.ht-tip .ht-tip-t{white-space:normal}',
+            '.ht-tip .ht-tip-t{white-space:normal;max-height:52vh;overflow:auto;overscroll-behavior:contain}',
             '.ht-tip .ht-mark{background:#fff1a8;color:inherit;padding:0 1px;border-radius:2px}',
             '.ht-tip .ht-arrow{position:absolute;width:9px;height:9px;background:#fff}',
             '.ht-tip[data-pos="below"] .ht-arrow{top:-5px;border-top:1px solid rgba(0,0,0,.14);border-left:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
@@ -305,7 +310,8 @@
         var g = span.__ht;
         var name = langName(g.src);
         tipLabel.textContent = cfg.source_label + (name ? ' · ' + name : '');
-        renderTipText(blockSlice(g.block || g.core, g.range));
+        // 直接给整段原文（不标黄：跨标签重排时高亮必然会指错，宁可不要）
+        tipText.textContent = g.block || g.core;
 
         // 记住鼠标在片段内的相对位置，滚动时保持跟随
         var r = span.getBoundingClientRect();
@@ -345,7 +351,14 @@
     }
 
     function bindHover() {
+        // 鼠标移进气泡就留住它，方便选中复制；移出去再走延迟隐藏
+        if (tip) {
+            tip.addEventListener('mouseenter', function () { clearTimeout(hideTimer); });
+            tip.addEventListener('mouseleave', function () { hideTip(); });
+        }
+
         document.addEventListener('mouseover', function (e) {
+            if (tip && tip.contains(e.target)) { clearTimeout(hideTimer); return; }
             var s = segOf(e.target);
             if (s) {
                 var a = state.anchor;
@@ -361,6 +374,7 @@
         }, false);
 
         document.addEventListener('mouseout', function (e) {
+            if (tip && tip.contains(e.target)) return;
             var s = segOf(e.target);
             if (!s) return;
             if (e.relatedTarget && s.contains(e.relatedTarget)) return;
@@ -770,7 +784,239 @@
         });
     }
 
+    /* -------------------------------------------- 整块 HTML 模式（官方组件路线） */
+    function requestHtml(htmls, from, to) {
+        var body = JSON.stringify([[htmls, from || 'auto', to], 'te_lib']);
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', cfg.html_endpoint, true);
+            xhr.setRequestHeader('X-goog-api-key', cfg.api_key);
+            xhr.setRequestHeader('Content-Type', 'application/json+protobuf');
+            xhr.timeout = 30000;
+            xhr.onload = function () {
+                if (xhr.status < 200 || xhr.status >= 300) { reject(new Error('HTTP ' + xhr.status)); return; }
+                var data;
+                try { data = JSON.parse(xhr.responseText); } catch (e) { reject(e); return; }
+                var list = data && data[0];
+                if (!list || !list.length) { reject(new Error('响应为空')); return; }
+                resolve(list);
+            };
+            xhr.onerror = function () { reject(new Error('网络错误')); };
+            xhr.ontimeout = function () { reject(new Error('请求超时')); };
+            xhr.send(body);
+        });
+    }
+
+    function textNodesOf(root) {
+        var out = [], w = document.createTreeWalker(root, 4, null, false), n;
+        while ((n = w.nextNode())) {
+            if (n.nodeValue && n.nodeValue.replace(/\s+/g, '').length) out.push(n);
+        }
+        return out;
+    }
+
+    function hasBlockChild(el) {
+        for (var c = el.firstChild; c; c = c.nextSibling) {
+            if (c.nodeType !== 1) continue;
+            if (BLOCK_TAGS[c.tagName]) return true;
+            if (hasBlockChild(c)) return true;
+        }
+        return false;
+    }
+
+    function hasExcluded(block) {
+        return !!block.querySelector('code,pre,script,style,textarea,kbd,samp,var,[translate="no"],.notranslate');
+    }
+
+    function wrapNode(node, lead, text, trail, meta) {
+        var parent = node.parentNode;
+        if (!parent) return;
+        var span = document.createElement('span');
+        span.className = 'ht-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' ht-hl' : '');
+        span.setAttribute('translate', 'no');
+        span.textContent = lead + text + trail;
+        span.__ht = meta;
+        parent.replaceChild(span, node);
+        state.spans.push(span);
+    }
+
+    /* 按标签树严格配对文本节点；结构不一致返回 false */
+    function mapTextNodes(a, b, out) {
+        var x = a.firstChild, y = b.firstChild;
+        while (x || y) {
+            if (x && x.nodeType === 3 && !x.nodeValue.replace(/\s+/g, '')) { x = x.nextSibling; continue; }
+            if (y && y.nodeType === 3 && !y.nodeValue.replace(/\s+/g, '')) { y = y.nextSibling; continue; }
+            if (!x || !y) return false;
+            if (x.nodeType === 3 && y.nodeType === 3) {
+                out.push([x, y]);
+                x = x.nextSibling; y = y.nextSibling; continue;
+            }
+            if (x.nodeType === 1 && y.nodeType === 1 && x.tagName === y.tagName) {
+                if (!mapTextNodes(x, y, out)) return false;
+                x = x.nextSibling; y = y.nextSibling; continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    function flatPairs(a, b) {
+        var xs = textNodesOf(a), ys = textNodesOf(b);
+        if (!xs.length || xs.length !== ys.length) return null;
+        var out = [];
+        for (var i = 0; i < xs.length; i++) out.push([xs[i], ys[i]]);
+        return out;
+    }
+
+    /* 原文块 → 译文 HTML → 写回各文本节点（标签结构由 Google 原样保留） */
+    function applyBlockHtml(block, html, srcLang) {
+        var holder = document.createElement('div');
+        holder.innerHTML = html;
+
+        var pairs = [];
+        var exact = mapTextNodes(block, holder, pairs);
+        if (!exact) {
+            pairs = flatPairs(block, holder);
+            if (!pairs) return false;   // 文本节点数量都对不上，交给文本模式
+        }
+
+        var blockText = (block.textContent || '').replace(/\s+/g, ' ').trim();
+        var items = [], cursor = 0, i;
+
+        for (i = 0; i < pairs.length; i++) {
+            var node = pairs[i][0];
+            var raw = node.nodeValue;
+            var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(raw);
+            var core = m[2].replace(/\s+/g, ' ');
+            var text = (pairs[i][1].nodeValue || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+
+            var start = core ? blockText.indexOf(core, cursor) : -1;
+            if (start >= 0) cursor = start + core.length;
+
+            items.push({
+                node: node, raw: raw, core: core, text: text,
+                lead: m[1], trail: m[3],
+                range: start >= 0 ? [start, start + core.length] : null
+            });
+        }
+
+        // 片段之间补/去空格（中文原文拼英文要空格，中文译文之间不要）
+        for (i = 0; i < items.length; i++) {
+            var prev = i > 0 ? items[i - 1].text : '';
+            var next = i < items.length - 1 ? items[i + 1].text : '';
+            if (!items[i].lead && needsSpace(prev, items[i].text)) items[i].lead = ' ';
+            if (!items[i].trail && needsSpace(items[i].text, next)) items[i].trail = ' ';
+            if (prev && cjkEdge(prev, true) && cjkEdge(items[i].text, false)) items[i].lead = '';
+            if (next && cjkEdge(items[i].text, true) && cjkEdge(next, false)) items[i].trail = '';
+        }
+
+        for (i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (!it.text) {
+                it.node.nodeValue = it.lead + it.trail;
+                state.empties.push({ node: it.node, orig: it.raw });
+                continue;
+            }
+            wrapNode(it.node, it.lead, it.text, it.trail, {
+                orig: it.raw,
+                core: it.core,
+                src: srcLang || '',
+                block: blockText,
+                range: it.range,
+                approx: !exact
+            });
+        }
+        return true;
+    }
+
+    function collectBlocks() {
+        var segs = [];
+        scan(document.body, segs);
+        var blocks = [], seen = [];
+        for (var i = 0; i < segs.length; i++) {
+            var b = blockOf(segs[i].node);
+            if (seen.indexOf(b) >= 0) continue;
+            seen.push(b);
+            blocks.push(b);
+        }
+        return blocks;
+    }
+
+    function chunkBlocks(list) {
+        var batches = [], cur = [], chars = 0;
+        for (var i = 0; i < list.length; i++) {
+            var b = list[i];
+            var len = b.html.length;
+            if (cur.length && (chars + len > cfg.html_batch_chars || cur.length >= cfg.html_batch_items)) {
+                batches.push(cur); cur = []; chars = 0;
+            }
+            cur.push(b); chars += len;
+        }
+        if (cur.length) batches.push(cur);
+        return batches;
+    }
+
+    function cachePut(key, val) {
+        state.cache[key] = val;
+        state.cacheDirty = true;
+        scheduleCacheSave();
+    }
+
+    function runHtml(gen, lang) {
+        var blocks = collectBlocks();
+        var todo = [];
+
+        for (var i = 0; i < blocks.length; i++) {
+            var b = blocks[i];
+            if (hasBlockChild(b) || hasExcluded(b)) continue;
+            if (b.querySelector && b.querySelector('.ht-s')) continue;
+            var html = b.innerHTML;
+            if (!html || !html.replace(/<[^>]*>/g, '').trim()) continue;
+
+            var key = 'h|' + lang + '|' + html;
+            var hit = state.cache[key];
+            if (hit && hit.html) { applyBlockHtml(b, hit.html, hit.src); continue; }
+            todo.push({ el: b, html: html, key: key });
+        }
+        if (!todo.length) return Promise.resolve();
+
+        var batches = chunkBlocks(todo);
+        var fails = 0, stop = false;
+
+        var tasks = batches.map(function (batch) {
+            return function () {
+                if (gen !== state.gen || stop) return Promise.resolve();
+                var htmls = batch.map(function (x) { return x.html; });
+                return requestHtml(htmls, cfg.default_language, lang).then(function (out) {
+                    if (gen !== state.gen) return;
+                    for (var k = 0; k < batch.length; k++) {
+                        var item = batch[k], html = out[k];
+                        if (!html) { fails++; continue; }
+                        if (!applyBlockHtml(item.el, html, '')) { fails++; continue; }
+                        cachePut(item.key, { html: html, src: '' });
+                    }
+                    updateUI();
+                }, function (err) {
+                    log('HTML 模式失败：', err && err.message);
+                    fails++;
+                    if (fails >= 3) stop = true;
+                });
+            };
+        });
+
+        return pool(tasks, 2);
+    }
+
     function runTranslation(gen, lang) {
+        if (cfg.mode === 'text') return runTranslationText(gen, lang);
+        return runHtml(gen, lang).then(function () {
+            if (gen !== state.gen) return;
+            // 剩下的（结构对不上 / 含代码块 / 嵌套块）退回文本模式，能翻多少算多少
+            return runTranslationText(gen, lang);
+        });
+    }
+
+    function runTranslationText(gen, lang) {
         var units = collectUnits();
         if (gen !== state.gen) return Promise.resolve();
 

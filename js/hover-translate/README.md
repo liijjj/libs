@@ -123,11 +123,13 @@ function gtranslate(){
 | `request_gap` | `60` | 同一并发槽内的请求间隔 |
 | `cache_max` | `3000` | 译文缓存条数上限 |
 | `endpoint` / `client` | Google `translate_a/t` | 换接口时才需要动 |
+| `mode` | `'text'` | 翻译走哪条路：`text`（默认，任何页面可用）/ `html`（官方 translateHtml，受 CORS 限制） |
+| `api_key` | Google 组件内置 key | `mode:'html'` 时才用 |
+| `html_batch_chars` / `html_batch_items` | `30000` / `16` | `mode:'html'` 时单次 POST 的规模 |
 | `storage_key` / `cache_key` | `__HT_STATE` / `__HT_CACHE` | 语言记忆与译文缓存 |
 | `debug` | `false` | 打开后才有 `console.log` |
 
 ## 五、原文是从哪来的（源码里为什么搜不到）
-
 因为原文根本不在脚本里，它是**页面现有的 DOM 文本**。
 
 翻译一个文本节点时：
@@ -159,11 +161,9 @@ $0.__ht.orig        // 逐字原文
 - **按"块"整段翻译**：一个 `<p>`/`<li>`/`<td>`（或最近的块级祖先）里所有文本节点拼成一段，
   用 `[[htN]]` 标记隔开送去翻译，回来再按标记切回各片段。句子完整，译文质量明显好于逐片段翻；
   标记在 Google 那边能完整保留（实测 5 组句子全过）。
-- **悬停给的是整段原文**：每个译文片段都记着所属块的完整原文和自己的位置。段落短就显示整段；
-  段落长就显示"包含该片段的那一句"，并把你指到的那几个词标黄（和当年 Google 组件一样）。
-  不额外发请求，读的是翻译时就地存下的原文。
-- 引擎整句重排时，个别片段的译文会整体挪到相邻片段（这一段的译文变成空）。这种空片段**不生成悬停热区**，
-  否则它会在行首变成一个"永远显示同一句"的假热区。
+- **悬停给的是整段原文**：每个译文片段都记着所属块的完整原文。鼠标一停就弹出**整段原文**
+  （不再是零散片段），气泡里可以滚动、可以选中复制；鼠标移进气泡不会消失，移开才收。
+- 不再标黄具体词：Google 整句重排时，片段与原文的对应关系会错位，与其指错不如不指。
 - 中文原文片段之间本来没有空格，译成英文时自动补空格（`ChinaPolitical` → `China Political`）；
   译成中日韩文字时反过来去掉多余空格。
 - **只翻译文本节点**，跳过 `script/style/code/pre/textarea/iframe/svg`、`.notranslate`、
@@ -187,6 +187,22 @@ $0.__ht.orig        // 逐字原文
 
 普通博客/文章页（1~3 万字）通常 2~5 个请求，1~2 秒。
 
+
+### 关于"原汁原味的 Google 组件"
+
+官方组件（`translate_a/element.js`）走的是 `translate-pa.googleapis.com/v1/translateHtml`：
+整块 HTML 进去、整块 HTML 出来，标签由 Google 原样保留。我把这条链路也实现了（`mode:'html'`），
+接口本身可用（实测单次 29KB、`<a href>`/`<b>` 都完好），但**它不对第三方页面返回 CORS 头**：
+
+```
+Access to XMLHttpRequest at 'https://translate-pa.googleapis.com/v1/translateHtml'
+from origin 'http://…' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present.
+```
+
+所以普通网页里跑不了（这也是为什么 gtranslate 那类服务要把 key 打在自己脚本里、并且只能翻自己的站）。
+默认仍是 `text` 模式：文本按块拼句、标记切回、任何站点都能用。哪天你在扩展、Electron 或自己的代理里
+跑这个脚本，把 `mode` 设成 `'html'` 就能用上官方那条路。
 
 ## 七、限制
 

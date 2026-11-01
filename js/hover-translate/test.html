@@ -123,13 +123,12 @@ window.hoverTranslateSettings = {
         check('悬停出现气泡', tip.classList.contains('gthx-on') || tip.classList.contains('ht-on'));
         check('气泡是整段原文', tip.querySelector('.ht-tip-t').textContent === target.__ht.block,
             JSON.stringify(tip.querySelector('.ht-tip-t').textContent.slice(0, 40)));
-        check('悬停的片段被高亮', !!tip.querySelector('.ht-mark'));
         check('气泡标注原文语言', /原文/.test(tip.querySelector('.ht-tip-l').textContent),
             tip.querySelector('.ht-tip-l').textContent);
 
         // 3. 移出
         target.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
-        await wait(250);
+        await wait(600);
         check('移出后气泡隐藏', !tip.classList.contains('ht-on'));
 
         // 4. 还原

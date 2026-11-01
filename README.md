@@ -35,19 +35,19 @@
 | 写法 | 例子 | 说明 |
 | --- | --- | --- |
 | 跟随最新 | `@main` | 改动后最长约 12 小时生效（有缓存） |
-| 锁定版本 | `@v1.4.0` | tag 不可变，适合长期引用 |
+| 锁定版本 | `@v2.0.0` | tag 不可变，适合长期引用 |
 | 锁定提交 | `@2edd6ec` | 最精确，适合排查问题 |
 | 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js` | 改完立刻生效 |
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@v1.4.0/js/hover-translate/hover-translate.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@v2.0.0/js/hover-translate/hover-translate.js" charset="utf-8"></script>
 ```
 
 ## 现在有哪些
 
 | 库 | 文件 | 版本 | 外链 |
 | --- | --- | --- | --- |
-| hover-translate.js（网页翻译 + 悬停看原文） | `js/hover-translate/hover-translate.js` | 1.4.0 | [@v1.4.0](https://cdn.jsdelivr.net/gh/liijjj/libs@v1.4.0/js/hover-translate/hover-translate.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js) |
+| hover-translate.js（网页翻译 + 悬停看原文） | `js/hover-translate/hover-translate.js` | 2.0.0 | [@v2.0.0](https://cdn.jsdelivr.net/gh/liijjj/libs@v2.0.0/js/hover-translate/hover-translate.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js) |
 
 演示：<https://liijjj.github.io/libs/js/hover-translate/demo.html>
 自测：<https://liijjj.github.io/libs/js/hover-translate/test.html>
@@ -64,8 +64,8 @@
 4. 要长期引用就打 tag：
 
 ```bash
-git tag -a v1.4.0 -m "foo 1.2.0"
-git push origin v1.4.0
+git tag -a v2.0.0 -m "foo 1.2.0"
+git push origin v2.0.0
 ```
 
 ## 工作流
