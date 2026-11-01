@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.1.1';
+    var VERSION = '1.2.0';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -60,9 +60,12 @@
 
         endpoint: 'https://clients5.google.com/translate_a/t',
         client: 'dict-chrome-ex',
-        batch_chars: 1200,               // 单次请求最多多少字符
-        batch_items: 20,                 // 单次请求最多多少段
-        request_gap: 120,                // 两批请求之间的间隔（毫秒）
+        unit_chars: 1000,                // 同一块内最多拼多少字符（整段一起翻）
+        batch_bytes: 11000,              // 单次请求 URL 里 q 的总编码字节（实测 12KB 是上限）
+        batch_items: 400,                // 单次请求最多多少段（URL 大小由 batch_bytes 兜底）
+        concurrency: 3,                  // 同时几个请求
+        request_gap: 60,                 // 同一并发槽内的请求间隔（毫秒）
+        retries: 1,                      // 单批失败后重试次数
 
         ui: true,                        // 是否显示语言切换器
         ui_position: 'top-right',        // top-right / top-left / bottom-right / bottom-left
@@ -78,6 +81,7 @@
         observe: true,                   // 监听动态内容并自动翻译
         storage_key: '__HT_STATE',     // 记住上次选择的语言
         cache_key: '__HT_CACHE',       // 译文缓存（跨页面复用）
+        cache_max: 3000,               // 缓存条数上限
         debug: false
     };
 
@@ -389,16 +393,96 @@
         while (node) {
             if (node.nodeType === 1) {
                 if (!isExcluded(node)) scan(node, out);
-            } else if (node.nodeType === 3) {
-                var seg = makeSegment(node);
+            } else if (node.nodeType === 3) {                var seg = makeSegment(node);
                 if (seg) out.push(seg);
             }
             node = node.nextSibling;
         }
     }
 
+    /* ---------------------------------------------------- 按"块"合并成翻译单元 */
+    var BLOCK_TAGS = {
+        P: 1, DIV: 1, LI: 1, TD: 1, TH: 1, TR: 1, TABLE: 1, UL: 1, OL: 1, DL: 1,
+        DD: 1, DT: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, BLOCKQUOTE: 1,
+        FIGCAPTION: 1, FIGURE: 1, SECTION: 1, ARTICLE: 1, ASIDE: 1, HEADER: 1,
+        FOOTER: 1, NAV: 1, MAIN: 1, FORM: 1, FIELDSET: 1, DETAILS: 1, SUMMARY: 1,
+        ADDRESS: 1, BODY: 1
+    };
+
+    var MARK_A = '[[ht', MARK_B = ']]';
+    var MARK_RE = /\[\[ht\d+\]\]/g;
+
+    function blockOf(node) {
+        var p = node.parentNode;
+        while (p && p.nodeType === 1) {
+            if (BLOCK_TAGS[p.tagName]) return p;
+            p = p.parentNode;
+        }
+        return document.body;
+    }
+
+    /* 把同一块内相邻的文本节点合成一个单元：整段送去翻译，回来再按标记切开 */
+    function collectUnits() {
+        var segs = [];
+        scan(document.body, segs);
+
+        var units = [], cur = null, curBlock = null, chars = 0;
+        for (var i = 0; i < segs.length; i++) {
+            var seg = segs[i];
+            var block = blockOf(seg.node);
+            if (cur && block === curBlock && chars + seg.core.length <= cfg.unit_chars) {
+                cur.parts.push(seg);
+                chars += seg.core.length;
+            } else {
+                cur = { parts: [seg] };
+                units.push(cur);
+                curBlock = block;
+                chars = seg.core.length;
+            }
+        }
+
+        for (var j = 0; j < units.length; j++) {
+            var u = units[j];
+            if (u.parts.length === 1) {
+                u.text = u.parts[0].core;
+            } else {
+                var s = '';
+                for (var k = 0; k < u.parts.length; k++) {
+                    // 标记两侧留空格，避免译文把相邻词粘成一个词
+                    if (k) s += ' ' + MARK_A + k + MARK_B + ' ';
+                    s += u.parts[k].core;
+                }
+                u.text = s;
+            }
+        }
+        return units;
+    }
+
+    function applyUnit(unit, row) {
+        var parts = unit.parts;
+        if (parts.length === 1) {
+            applySeg(parts[0], row);
+            return;
+        }
+        var pieces = row.text.split(MARK_RE);
+        if (pieces.length !== parts.length) {
+            // 标记没保住：整段塞进第一个片段，其余清空，至少不会中英混排
+            applySeg(parts[0], { text: row.text.replace(MARK_RE, ' ').replace(/\s+/g, ' ').trim(), src: row.src });
+            for (var m = 1; m < parts.length; m++) applySeg(parts[m], { text: '', src: row.src });
+            return;
+        }
+        for (var i = 0; i < parts.length; i++) {
+            var text = pieces[i].replace(/^\s+|\s+$/g, '');
+            var lead = parts[i].lead;
+            var trail = parts[i].trail;
+            if (i > 0 && cjkEdge(pieces[i - 1], true) && cjkEdge(text, false)) lead = '';
+            if (i < parts.length - 1 && cjkEdge(text, true) && cjkEdge(pieces[i + 1], false)) trail = '';
+            applySeg(parts[i], { text: text, src: row.src }, lead, trail);
+        }
+    }
+
     /* ------------------------------------------------------------ 译文应用 */
-    function applySeg(seg, row) {
+    function applySeg(seg, row, lead, trail) {
         var node = seg.node;
         var parent = node.parentNode;
         if (!parent || node.nodeValue !== seg.raw) return false;
@@ -406,12 +490,23 @@
         var span = document.createElement('span');
         span.className = 'ht-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' ht-hl' : '');
         span.setAttribute('translate', 'no');
-        span.textContent = seg.lead + (row.text || seg.core) + seg.trail;
+        var out = (row.text === undefined || row.text === null) ? seg.core : row.text;
+        span.textContent = (lead === undefined ? seg.lead : lead) + out +
+            (trail === undefined ? seg.trail : trail);
         span.__ht = { orig: seg.raw, core: seg.core, src: row.src || '' };
 
         parent.replaceChild(span, node);
         state.spans.push(span);
         return true;
+    }
+
+    /* 译文是中日韩文字时，去掉片段之间多余的空格（"作为 共和党成员" → "作为共和党成员"） */
+    var CJK_CHAR = /[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/;
+    function cjkEdge(s, atEnd) {
+        if (!s) return false;
+        s = s.replace(/^\s+|\s+$/g, '');
+        if (!s) return false;
+        return CJK_CHAR.test(atEnd ? s.charAt(s.length - 1) : s.charAt(0));
     }
 
     function restoreSpans() {
@@ -456,7 +551,19 @@
     function normalize(data, n) {
         var out = [];
         if (!data || !data.length) return out;
-        var rows = (typeof data[0] === 'string') ? [data] : data;
+
+        // 三种返回形态：
+        //   A 单个 q + sl=auto: ["译文", "en"]
+        //   B 多个 q + sl=auto: [["译文","en"], ["译文","en"], ...]
+        //   C 任意 q + 固定 sl: ["译文1", "译文2", ...]
+        var rows;
+        if (typeof data[0] === 'string') {
+            rows = (n === 1) ? [[data[0], data[1] || '']]
+                : data.map(function (t) { return [t, '']; });
+        } else {
+            rows = data;
+        }
+
         for (var i = 0; i < n; i++) {
             var row = rows[i];
             if (!row) { out.push(null); continue; }
@@ -498,9 +605,10 @@
         state.cacheDirty = false;
         try {
             var keys = Object.keys(state.cache);
-            if (keys.length > 800) {
+            var max = cfg.cache_max | 0 || 3000;
+            if (keys.length > max) {
                 var dropped = {};
-                for (var i = keys.length - 800; i < keys.length; i++) dropped[keys[i]] = state.cache[keys[i]];
+                for (var i = keys.length - max; i < keys.length; i++) dropped[keys[i]] = state.cache[keys[i]];
                 state.cache = dropped;
             }
             localStorage.setItem(cfg.cache_key, JSON.stringify(state.cache));
@@ -531,47 +639,67 @@
     }
 
     /* ------------------------------------------------------------ 主翻译流程 */
-    function chunk(list) {
-        var batches = [], cur = [], chars = 0;
+    function chunkUnits(list) {
+        var batches = [], cur = [], bytes = 0;
         for (var i = 0; i < list.length; i++) {
-            var seg = list[i];
-            if (cur.length && (chars + seg.core.length > cfg.batch_chars || cur.length >= cfg.batch_items)) {
-                batches.push(cur); cur = []; chars = 0;
+            var u = list[i];
+            // 按"编码后字节"控制 URL 长度：中文一字 3 字节，英文 1 字节
+            var enc = encodeURIComponent(u.text).length + 8;
+            if (cur.length && (bytes + enc > cfg.batch_bytes || cur.length >= cfg.batch_items)) {
+                batches.push(cur); cur = []; bytes = 0;
             }
-            cur.push(seg);
-            chars += seg.core.length;
+            cur.push(u);
+            bytes += enc;
         }
         if (cur.length) batches.push(cur);
         return batches;
     }
 
+    /* 固定并发数的任务池 */
+    function pool(tasks, concurrency) {
+        return new Promise(function (resolve) {
+            var i = 0, active = 0;
+            function next() {
+                if (i >= tasks.length && active === 0) { resolve(); return; }
+                while (active < concurrency && i < tasks.length) {
+                    active++;
+                    Promise.resolve().then(tasks[i++]).then(done, done);
+                }
+            }
+            function done() { active--; next(); }
+            next();
+        });
+    }
+
     function runTranslation(gen, lang) {
-        var segs = [];
-        scan(document.body, segs);
+        var units = collectUnits();
         if (gen !== state.gen) return Promise.resolve();
 
         var pending = [];
-        for (var i = 0; i < segs.length; i++) {
-            var hit = cacheGet(lang, segs[i].core);
-            if (hit) applySeg(segs[i], hit);
-            else pending.push(segs[i]);
+        for (var i = 0; i < units.length; i++) {
+            var hit = cacheGet(lang, units[i].text);
+            if (hit) applyUnit(units[i], hit);
+            else pending.push(units[i]);
         }
-        log('待翻译文本段：', pending.length);
+        log('待翻译块：', pending.length, '并发：', cfg.concurrency);
 
-        var batches = chunk(pending);
-        var bi = 0, fails = 0;
+        var batches = chunkUnits(pending);
+        var fails = 0;
+        var STOP_AFTER = 5;   // 连续失败这么多次就停手，避免把限流打成封禁
 
-        function step() {
-            if (gen !== state.gen || bi >= batches.length || fails >= 2) {
-                return Promise.resolve();
-            }
-            var batch = batches[bi++];
+        function runBatch(batch, depth) {
+            if (gen !== state.gen || fails >= STOP_AFTER) return Promise.resolve();
+
             var uniq = [], index = {};
             for (var k = 0; k < batch.length; k++) {
-                var c = batch[k].core;
-                if (!(c in index)) { index[c] = uniq.length; uniq.push(c); }
+                var t = batch[k].text;
+                if (!(t in index)) { index[t] = uniq.length; uniq.push(t); }
             }
+
             return requestBatch(uniq, cfg.default_language, lang).then(function (rows) {
+                // 语言已经切换，这批结果作废（缓存仍保留，下次可用）
+                if (gen !== state.gen) return;
+
                 for (var k = 0; k < uniq.length; k++) {
                     var row = rows[k];
                     if (!row || !row.text) continue;
@@ -579,24 +707,35 @@
                     if (row.src) state.detected = row.src;
                     cacheSet(lang, uniq[k], val);
                 }
-                // 语言已经切换，这批结果作废（缓存仍保留，下次可用）
-                if (gen !== state.gen) return;
                 for (var j = 0; j < batch.length; j++) {
-                    var row2 = rows[index[batch[j].core]];
-                    if (row2 && row2.text) applySeg(batch[j], row2);
+                    var row2 = rows[index[batch[j].text]];
+                    if (row2 && row2.text) applyUnit(batch[j], row2);
                 }
                 fails = 0;
                 updateUI();
-                return sleep(cfg.request_gap).then(step);
+                return sleep(cfg.request_gap);
             }, function (err) {
-                fails++;
-                log('翻译失败：', err && err.message);
                 if (gen !== state.gen) return;
-                return step();
+                log('翻译失败：', err && err.message, '批次', batch.length, '深度', depth);
+
+                // 先退避一下；还是不行就把批次劈成两半再试（多半是 URL 太长或临时限流）
+                return sleep(250 + 350 * (depth + 1) + Math.random() * 250).then(function () {
+                    if (batch.length > 1 && depth < 3) {
+                        var mid = Math.ceil(batch.length / 2);
+                        return runBatch(batch.slice(0, mid), depth + 1).then(function () {
+                            return runBatch(batch.slice(mid), depth + 1);
+                        });
+                    }
+                    fails++;
+                });
             });
         }
 
-        return step().then(function () {
+        var tasks = batches.map(function (batch) {
+            return function () { return runBatch(batch, 0); };
+        });
+
+        return pool(tasks, Math.max(1, cfg.concurrency | 0)).then(function () {
             if (gen === state.gen) updateUI();
         });
     }
