@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.2.0';
+    var VERSION = '1.3.0';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -60,7 +60,7 @@
 
         endpoint: 'https://clients5.google.com/translate_a/t',
         client: 'dict-chrome-ex',
-        unit_chars: 1000,                // 同一块内最多拼多少字符（整段一起翻）
+        unit_bytes: 8000,                // 一个"块"（p/li/td…）最多多少编码字节，整段一起翻
         batch_bytes: 11000,              // 单次请求 URL 里 q 的总编码字节（实测 12KB 是上限）
         batch_items: 400,                // 单次请求最多多少段（URL 大小由 batch_bytes 兜底）
         concurrency: 3,                  // 同时几个请求
@@ -176,7 +176,8 @@
 
             '.ht-tip.ht-on{opacity:1;visibility:visible;transform:none}',
             '.ht-tip .ht-tip-l{font-size:11px;line-height:1.4;color:#80868b;margin:0 0 3px;letter-spacing:.02em}',
-            '.ht-tip .ht-tip-t{white-space:pre-wrap}',
+            '.ht-tip .ht-tip-t{white-space:normal}',
+            '.ht-tip .ht-mark{background:#fff1a8;color:inherit;padding:0 1px;border-radius:2px}',
             '.ht-tip .ht-arrow{position:absolute;width:9px;height:9px;background:#fff}',
             '.ht-tip[data-pos="below"] .ht-arrow{top:-5px;border-top:1px solid rgba(0,0,0,.14);border-left:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
             '.ht-tip[data-pos="above"] .ht-arrow{bottom:-5px;border-right:1px solid rgba(0,0,0,.14);border-bottom:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
@@ -258,13 +259,52 @@
         tipArrow.style.left = Math.round(ax) + 'px';
     }
 
+    /* 悬停时展示"整段原文"：段落不长就整段，长了就取包含该片段的那一句 */
+    var SENT_END = /[.!?。！？…\n]/;
+
+    function blockSlice(text, range) {
+        if (!range) return { text: text, a: -1, b: -1 };
+        var a = range[0], b = range[1];
+        if (text.length <= 220) return { text: text, a: a, b: b };
+
+        var start = Math.max(0, a - 200);
+        var end = Math.min(text.length, b + 200);
+        for (var i = a; i > start; i--) {
+            if (SENT_END.test(text.charAt(i - 1))) { start = i; break; }
+        }
+        for (var j = b; j < end; j++) {
+            if (SENT_END.test(text.charAt(j))) { end = j + 1; break; }
+        }
+        if (end - start > 700) {
+            start = Math.max(start, a - 250);
+            end = Math.min(end, b + 250);
+        }
+        return { text: text.slice(start, end), a: a - start, b: b - start };
+    }
+
+    function renderTipText(v) {
+        tipText.textContent = '';
+        var t = v.text || '';
+        // 片段就是整段（或没定位到）时不做高亮，整段都变黄反而奇怪
+        if (v.a < 0 || v.a >= v.b || (v.a === 0 && v.b >= t.length)) {
+            tipText.textContent = t;
+            return;
+        }
+        tipText.appendChild(document.createTextNode(t.slice(0, v.a)));
+        var mk = document.createElement('mark');
+        mk.className = 'ht-mark';
+        mk.textContent = t.slice(v.a, v.b);
+        tipText.appendChild(mk);
+        tipText.appendChild(document.createTextNode(t.slice(v.b)));
+    }
+
     function showTip(span, x, y) {
         if (!cfg.tooltip || !span || !span.__ht) return;
         clearTimeout(hideTimer);
         var g = span.__ht;
         var name = langName(g.src);
         tipLabel.textContent = cfg.source_label + (name ? ' · ' + name : '');
-        tipText.textContent = g.core;
+        renderTipText(blockSlice(g.block || g.core, g.range));
 
         // 记住鼠标在片段内的相对位置，滚动时保持跟随
         var r = span.getBoundingClientRect();
@@ -421,23 +461,23 @@
         return document.body;
     }
 
-    /* 把同一块内相邻的文本节点合成一个单元：整段送去翻译，回来再按标记切开 */
+    /* 以"块"为单位（一个 p / li / td …）：整段送去翻译，回来再按标记切回各片段 */
     function collectUnits() {
         var segs = [];
         scan(document.body, segs);
 
-        var units = [], cur = null, curBlock = null, chars = 0;
+        var units = [], cur = null, curBlock = null;
         for (var i = 0; i < segs.length; i++) {
             var seg = segs[i];
             var block = blockOf(seg.node);
-            if (cur && block === curBlock && chars + seg.core.length <= cfg.unit_chars) {
+            var enc = encodeURIComponent(seg.core).length;
+            if (cur && block === curBlock && cur.bytes + enc <= cfg.unit_bytes) {
                 cur.parts.push(seg);
-                chars += seg.core.length;
+                cur.bytes += enc;
             } else {
-                cur = { parts: [seg] };
+                cur = { parts: [seg], block: block, bytes: enc };
                 units.push(cur);
                 curBlock = block;
-                chars = seg.core.length;
             }
         }
 
@@ -458,17 +498,37 @@
         return units;
     }
 
+    /* 整块原文（含不含翻译的内联内容）+ 每个片段在其中的位置，供悬停时展示完整句子 */
+    function blockInfo(block, parts) {
+        var text = ((block && block.textContent) || '').replace(/\s+/g, ' ').trim();
+        var ranges = [], pos = 0;
+        for (var i = 0; i < parts.length; i++) {
+            var core = parts[i].core;
+            var idx = text.indexOf(core, pos);
+            if (idx < 0) { ranges.push(null); continue; }
+            ranges.push([idx, idx + core.length]);
+            pos = idx + core.length;
+        }
+        return { text: text, ranges: ranges };
+    }
+
     function applyUnit(unit, row) {
         var parts = unit.parts;
+        var info = blockInfo(unit.block, parts);
+
         if (parts.length === 1) {
-            applySeg(parts[0], row);
+            applySeg(parts[0], row, undefined, undefined, { text: info.text, range: info.ranges[0] });
             return;
         }
         var pieces = row.text.split(MARK_RE);
         if (pieces.length !== parts.length) {
             // 标记没保住：整段塞进第一个片段，其余清空，至少不会中英混排
-            applySeg(parts[0], { text: row.text.replace(MARK_RE, ' ').replace(/\s+/g, ' ').trim(), src: row.src });
-            for (var m = 1; m < parts.length; m++) applySeg(parts[m], { text: '', src: row.src });
+            applySeg(parts[0], { text: row.text.replace(MARK_RE, ' ').replace(/\s+/g, ' ').trim(), src: row.src },
+                undefined, undefined, { text: info.text, range: info.ranges[0] });
+            for (var m = 1; m < parts.length; m++) {
+                applySeg(parts[m], { text: '', src: row.src }, undefined, undefined,
+                    { text: info.text, range: info.ranges[m] });
+            }
             return;
         }
         for (var i = 0; i < parts.length; i++) {
@@ -477,12 +537,13 @@
             var trail = parts[i].trail;
             if (i > 0 && cjkEdge(pieces[i - 1], true) && cjkEdge(text, false)) lead = '';
             if (i < parts.length - 1 && cjkEdge(text, true) && cjkEdge(pieces[i + 1], false)) trail = '';
-            applySeg(parts[i], { text: text, src: row.src }, lead, trail);
+            applySeg(parts[i], { text: text, src: row.src }, lead, trail,
+                { text: info.text, range: info.ranges[i] });
         }
     }
 
     /* ------------------------------------------------------------ 译文应用 */
-    function applySeg(seg, row, lead, trail) {
+    function applySeg(seg, row, lead, trail, info) {
         var node = seg.node;
         var parent = node.parentNode;
         if (!parent || node.nodeValue !== seg.raw) return false;
@@ -493,7 +554,13 @@
         var out = (row.text === undefined || row.text === null) ? seg.core : row.text;
         span.textContent = (lead === undefined ? seg.lead : lead) + out +
             (trail === undefined ? seg.trail : trail);
-        span.__ht = { orig: seg.raw, core: seg.core, src: row.src || '' };
+        span.__ht = {
+            orig: seg.raw,
+            core: seg.core,
+            src: row.src || '',
+            block: info && info.text || seg.core,
+            range: info && info.range || null
+        };
 
         parent.replaceChild(span, node);
         state.spans.push(span);

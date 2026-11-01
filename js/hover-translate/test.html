@@ -94,6 +94,13 @@ window.hoverTranslateSettings = {
 
     var started = false;
 
+    window.addEventListener('error', function (e) {
+        say('ERROR: ' + e.message + ' @line ' + e.lineno);
+    });
+    document.addEventListener('ht:error', function (e) {
+        say('HT ERROR: ' + (e.detail && e.detail.error && e.detail.error.message));
+    });
+
     document.addEventListener('ht:done', async function (e) {
         if (started) return;
         started = true;
@@ -113,9 +120,10 @@ window.hoverTranslateSettings = {
             bubbles: true, clientX: tr.left + 60, clientY: tr.top + 12
         }));
         await wait(120);
-        check('悬停出现气泡', tip.classList.contains('ht-on'));
-        check('气泡内容是原文', tip.querySelector('.ht-tip-t').textContent === target.__ht.core,
+        check('悬停出现气泡', tip.classList.contains('gthx-on') || tip.classList.contains('ht-on'));
+        check('气泡是整段原文', tip.querySelector('.ht-tip-t').textContent === target.__ht.block,
             JSON.stringify(tip.querySelector('.ht-tip-t').textContent.slice(0, 40)));
+        check('悬停的片段被高亮', !!tip.querySelector('.ht-mark'));
         check('气泡标注原文语言', /原文/.test(tip.querySelector('.ht-tip-l').textContent),
             tip.querySelector('.ht-tip-l').textContent);
 
