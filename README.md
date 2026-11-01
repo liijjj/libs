@@ -47,7 +47,7 @@
 
 | 库 | 文件 | 版本 | 外链 |
 | --- | --- | --- | --- |
-| gtwrap.js（官方 Google 翻译组件的壳：无横幅、左下角小胶囊） | `js/gtwrap/gtwrap.js` | 1.0.0 | [@gtwrap-v1.0.0](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.0.0/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
+| gtwrap.js（官方 Google 翻译组件的壳：无横幅、左下角小胶囊） | `js/gtwrap/gtwrap.js` | 1.0.2 | [@gtwrap-v1.0.2](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.0.2/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
 | hover-translate.js（自研：网页翻译 + 悬停看原文） | `js/hover-translate/hover-translate.js` | 2.0.0 | [@v2.0.0](https://cdn.jsdelivr.net/gh/liijjj/libs@v2.0.0/js/hover-translate/hover-translate.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js) |
 
 演示：<https://liijjj.github.io/libs/js/gtwrap/demo.html>
