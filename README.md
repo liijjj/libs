@@ -59,7 +59,8 @@
 ## 新增一个库
 
 1. 建目录放文件：`js/foo/foo.js`（第三方就放 `js/others/foo-1.2.3.min.js`）。
-2. `libs.json` 的 `items` 里加一条（id、name、desc、file、version、demo、doc、tags）。
+2. `libs.json` 的 `items` 里加一条（id、name、desc、file、version、ref、demo、doc、tags）；
+   `version` 是显示用的库版本，`ref` 是想固定的 tag（不写就跟随 `@main`）。
 3. 根 README 的表格加一行，`git push`；要长期引用就打个 tag：
 
 ```bash

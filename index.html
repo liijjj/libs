@@ -72,7 +72,7 @@
     </header>
 
     <div class="toolbar">
-        <input type="search" id="q" placeholder="搜索名字、说明或标签…" autocomplete="off">
+        <input type="search" id="q" placeholder="搜索名字、说明或标签…" aria-label="搜索" autocomplete="off">
     </div>
 
     <div class="grid" id="list">
@@ -92,8 +92,8 @@
     var meta = { owner: '', repo: '', cdn: 'https://cdn.jsdelivr.net/gh' };
     var items = [];
 
-    function cdnBase(version) {
-        return meta.cdn + '/' + meta.owner + '/' + meta.repo + '@' + (version || 'main') + '/';
+    function cdnBase(ref) {
+        return meta.cdn + '/' + meta.owner + '/' + meta.repo + '@' + (ref || 'main') + '/';
     }
 
     function el(tag, cls, text) {
@@ -138,7 +138,8 @@
         (item.tags || []).forEach(function (t) { tags.appendChild(el('span', 'tag', t)); });
         if (tags.childNodes.length) box.appendChild(tags);
 
-        var url = cdnBase(item.version) + item.file;
+        var ref = item.ref || 'main';
+        var url = cdnBase(ref) + item.file;
         var row = el('div', 'urlrow');
         var u = el('div', 'url', url);
         var btn = el('button', null, '复制');
@@ -161,8 +162,8 @@
                 : item.doc;
             links.appendChild(d);
         }
-        if (item.version) {
-            var p = el('a', null, '最新版（@main）→');
+        if (item.ref) {
+            var p = el('a', null, '跟随最新（@main）→');
             p.href = cdnBase('main') + item.file;
             links.appendChild(p);
         }
