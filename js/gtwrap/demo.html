@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gtwrap — 官方组件外壳</title>
+<style>
+    body { font: 17px/1.8 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+           max-width: 680px; margin: 56px auto; padding: 0 20px; color: #22262b; background: #fcfcfd; }
+    h1 { font-size: 30px; line-height: 1.3; margin: 0 0 10px; }
+    h2 { font-size: 20px; margin: 32px 0 10px; }
+    p { margin: 0 0 16px; }
+    .meta { color: #6b7280; font-size: 13px; margin-bottom: 28px; }
+    a { color: #1a73e8; }
+    blockquote { margin: 20px 0; padding: 6px 18px; border-left: 3px solid #dfe3e8; color: #4b5563; }
+</style>
+</head>
+<body>
+
+<h1>Official widget, wrapped</h1>
+<p class="meta">This page loads Google's own <code>element.js</code>; only the banner is hidden and the picker moved.</p>
+
+<p>For most of the internet's history, language was a hard border. A reader in Shanghai could not read a
+German forum thread, and a developer in Berlin could not read a Japanese API reference.</p>
+
+<p>The first generation of browser translators worked sentence by sentence, and they were honest about it:
+you hovered over a paragraph and the original sentence appeared in a small white bubble.</p>
+
+<h2>What this wrapper does</h2>
+
+<p>It loads Google's official translator, hides the top banner it injects, and drives it from a small pill in
+the corner. Everything else — the translation itself, the hover bubble with the original text — is Google's own.</p>
+
+<blockquote>Move the mouse over a translated sentence: the little bubble with the source text is the official one.</blockquote>
+
+<p>Use the pill in the corner to switch language, or pick 原文 to get the page back.</p>
+
+<script>
+window.gtwrapSettings = {
+    languages: ['zh-CN', 'en', 'ja'],
+    position: 'bottom-left',
+    auto_translate: ''
+};
+</script>
+<script src="gtwrap.js"></script>
+</body>
+</html>
