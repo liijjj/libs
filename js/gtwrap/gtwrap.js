@@ -54,19 +54,23 @@
     }
 
     function pageLang() {
-        if (cfg.page_language) return cfg.page_language;
-        var l = (document.documentElement.getAttribute('lang') || '').trim();
-        return l || 'en';
+        var want = (cfg.page_language || '').trim();
+        if (want && want !== 'auto') return want;
+        var html = (document.documentElement.getAttribute('lang') || '').trim();
+        if (html && html !== 'auto') return html;
+        return 'auto';   // 页面没写 lang，交给谷歌自己判断
     }
 
     /* --------------------------------------------------------------- 样式 */
     function injectCSS() {
         if (document.getElementById('gtwrap-style')) return;
+        var hideBanner = cfg.hide_banner !== false;
         var css = [
-            /* 顶部横幅和它带来的整体下移，一律去掉 */
-            cfg.hide_banner === false ? '' : 'html body{top:0 !important}',
-            cfg.hide_banner === false ? '' : 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{display:none !important}',
-            cfg.hide_banner === false ? '' : 'body > .skiptranslate{display:none !important}',
+            /* 顶部横幅：只藏"包着横幅 iframe 的那个 div"，别误伤原文气泡（它外层也是 .skiptranslate） */
+            hideBanner ? 'html body{top:0 !important}' : '',
+            hideBanner ? 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{display:none !important}' : '',
+            hideBanner ? 'body > .skiptranslate:has(> iframe.VIpgJd-ZVi9od-ORHb-OEVmcd){display:none !important}' : '',
+            hideBanner ? 'body > .skiptranslate[style*="height:40px"],body > .skiptranslate[style*="height: 40px"]{display:none !important}' : '',
 
             /* 官方控件本体挪到屏幕外，只留着给我们的 UI 驱动 */
             '#gtwrap-host{position:fixed !important;left:-9999px !important;top:-9999px !important;',
