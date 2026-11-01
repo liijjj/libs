@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.3.0';
+    var VERSION = '1.3.1';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -919,24 +919,25 @@
         });
         document.addEventListener('click', function () { root.classList.remove('ht-open'); });
 
-        var host = cfg.ui_container ? document.querySelector(cfg.ui_container) : null;
-        if (host) {
-            root.classList.add('ht-static');
-            host.appendChild(root);
-        } else {
-            document.body.appendChild(root);
-        }
-
         state.uiRoot = root;
         state.uiName = nameEl;
-        applyUIPosition();
+        applyUILayout();
         updateUI();
     }
 
-    /* 让 ui_position 既能初始化时生效，也能通过 config() 实时改 */
-    function applyUIPosition() {
-        if (!state.uiRoot) return;
-        state.uiRoot.setAttribute('data-pos', cfg.ui_position || 'top-right');
+    /* 位置 / 容器：初始化时和 config() 里都能生效 */
+    function applyUILayout() {
+        var root = state.uiRoot;
+        if (!root) return;
+        var host = cfg.ui_container ? document.querySelector(cfg.ui_container) : null;
+        if (host) {
+            root.classList.add('ht-static');
+            if (root.parentNode !== host) host.appendChild(root);
+        } else {
+            root.classList.remove('ht-static');
+            if (root.parentNode !== document.body) document.body.appendChild(root);
+        }
+        root.setAttribute('data-pos', cfg.ui_position || 'top-right');
     }
 
     function updateUI() {
@@ -1040,8 +1041,15 @@
         config: function (o) {
             extend(cfg, o);
             normalizeCfg();
-            if (o && o.ui === true && !state.uiBuilt) buildUI();
-            if (o && o.ui_position !== undefined) applyUIPosition();
+            if (o && o.ui === false) {
+                if (state.uiRoot && state.uiRoot.parentNode) state.uiRoot.parentNode.removeChild(state.uiRoot);
+                state.uiRoot = null;
+                state.uiName = null;
+                state.uiBuilt = false;
+            } else if (o && o.ui === true && !state.uiBuilt) {
+                buildUI();
+            }
+            if (o && (o.ui_position !== undefined || o.ui_container !== undefined)) applyUILayout();
             if (o && (o.show_original !== undefined || o.tooltip !== undefined)) {
                 for (var i = 0; i < state.spans.length; i++) {
                     var sp = state.spans[i];
