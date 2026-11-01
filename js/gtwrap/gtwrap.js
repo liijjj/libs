@@ -215,12 +215,13 @@
     }
 
     function applyInitialLanguage() {
+        // 官方组件可能已经按 cookie 恢复过语言，先同步过来
+        state.lang = (state.combo && state.combo.value) || '';
         var saved = null;
         try { saved = localStorage.getItem(cfg.storage_key); } catch (e) { }
         var want = cfg.auto_translate || saved || '';
-        if (!want) { updateUI(); return; }
+        if (!want || state.lang === want) { updateUI(); return; }
         if (cfg.languages.indexOf(want) < 0) { updateUI(); return; }
-        // 官方组件自己也会从 googtrans cookie 恢复，这里只是保证一致
         setLanguage(want, true);
     }
 
