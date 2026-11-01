@@ -1,9 +1,9 @@
-# libs
+# 在线脚本库
 
 自己的、AI 生成的、以及第三方的在线脚本库。所有文件都有稳定外链，可以直接 `<script src>` 引用。
 
-- 目录页：<https://liijjj.github.io/libs/>
-- CDN：`https://cdn.jsdelivr.net/gh/liijjj/libs@main/<路径>`
+- 目录页：<https://liijjj.github.io/my-repository/>
+- CDN：`https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/<路径>`
 - 清单：`libs.json`（目录页读它来渲染，加库时记得同步）
 
 ## 目录结构
@@ -41,20 +41,20 @@
 | 跟随最新 | `@main` | 改动后最长约 12 小时生效（有缓存） |
 | 锁定版本 | `@v1.0.0` | tag 不可变，适合长期引用 |
 | 锁定提交 | `@2edd6ec` | 最精确，适合排查问题 |
-| 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/libs@main/js/gthx/gthx.js` | 改完立刻生效 |
+| 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/my-repository@main/js/gthx/gthx.js` | 改完立刻生效 |
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@v1.0.0/js/gthx/gthx.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/gh/liijjj/my-repository@v1.0.0/js/gthx/gthx.js" charset="utf-8"></script>
 ```
 
 ## 现在有哪些
 
 | 库 | 文件 | 版本 | 外链 |
 | --- | --- | --- | --- |
-| gthx.js（网页翻译 + 悬停看原文） | `js/gthx/gthx.js` | 1.0.0 | [@v1.0.0](https://cdn.jsdelivr.net/gh/liijjj/libs@v1.0.0/js/gthx/gthx.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gthx/gthx.js) |
-| mylib（个人用户脚本） | `js/my/mylib.js` | 跟随提交 | [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/my/mylib.js) |
-| crypto-js | `js/others/crypto-js-4.1.1.min.js` | 4.1.1 | [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/others/crypto-js-4.1.1.min.js) |
-| SweetAlert2 | `js/others/sweetalert2-11.10.3.min.js` | 11.10.3 | [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/others/sweetalert2-11.10.3.min.js) |
+| gthx.js（网页翻译 + 悬停看原文） | `js/gthx/gthx.js` | 1.0.0 | [@v1.0.0](https://cdn.jsdelivr.net/gh/liijjj/my-repository@v1.0.0/js/gthx/gthx.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/gthx/gthx.js) |
+| mylib（个人用户脚本） | `js/my/mylib.js` | 跟随提交 | [@main](https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/my/mylib.js) |
+| crypto-js | `js/others/crypto-js-4.1.1.min.js` | 4.1.1 | [@main](https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/others/crypto-js-4.1.1.min.js) |
+| SweetAlert2 | `js/others/sweetalert2-11.10.3.min.js` | 11.10.3 | [@main](https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/others/sweetalert2-11.10.3.min.js) |
 
 ## 新增一个库
 
@@ -75,7 +75,7 @@ git push origin v1.0.0
 3. 想要固定外链就用某份归档：
 
 ```
-https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/my/archive/mylib-202505040941.js
+https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/my/archive/mylib-202505040941.js
 ```
 
 不再需要把时间戳写进正在用的文件名里——`mylib.js` 就是稳定入口，历史留档交给 `archive/`。

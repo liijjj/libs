@@ -1,9 +1,9 @@
 {
     "repo": {
         "owner": "liijjj",
-        "name": "libs",
-        "pages": "https://liijjj.github.io/libs/",
-        "cdn": "https://cdn.jsdelivr.net/gh/liijjj/libs"
+        "name": "my-repository",
+        "pages": "https://liijjj.github.io/my-repository/",
+        "cdn": "https://cdn.jsdelivr.net/gh/liijjj/my-repository"
     },
     "items": [
         {
