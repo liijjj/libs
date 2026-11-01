@@ -3,6 +3,7 @@
 自己的、AI 生成的、以及第三方的在线脚本库。所有文件都有稳定外链，可以直接 `<script src>` 引用。
 
 - 目录页：<https://liijjj.github.io/my-repository/>
+- gthx 演示：<https://liijjj.github.io/my-repository/js/gthx/demo.html>
 - CDN：`https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/<路径>`
 - 清单：`libs.json`（目录页读它来渲染，加库时记得同步）
 
@@ -24,7 +25,8 @@
 │  └─ others/                 第三方库，文件名 名字-版本.min.js
 └─ .github/workflows/
    ├─ archive-my-js.yml       改 js/my/*.js 后自动归档
-   └─ check.yml               校验 js 语法 + libs.json 里文件是否存在
+   ├─ check.yml               校验 js 语法 + libs.json 里文件是否存在
+   └─ pages.yml               发布到 GitHub Pages
 ```
 
 约定：
@@ -85,6 +87,15 @@ https://cdn.jsdelivr.net/gh/liijjj/my-repository@main/js/my/archive/mylib-202505
 
 - `archive-my-js.yml`：push 改到 `js/my/*.js` 时触发，内容与最新归档不同才新增副本（机器人提交不会自激）。
 - `check.yml`：所有 js 过一遍 `node --check`，并检查 `libs.json` 里写的文件是否真的存在——防止清单和文件对不上。
+- `pages.yml`：把根目录发布到 GitHub Pages（目录页 + 各库的 demo）。首次运行已自动开启 Pages，
+  之后每次 push 到 `main` 都会重新部署。
+
+## 改名（可选）
+
+仓库现在叫 `my-repository`。想改成 `libs` 之类更短的名字：Settings → General → Repository name → Rename。
+改完把 README 和 `libs.json` 里的 `my-repository` 全部替换成新名字即可（目录页的链接是从当前地址算的，
+不用改），Pages 地址会变成 `https://liijjj.github.io/<新名字>/`。GitHub 会为重定向旧地址，
+但 jsDelivr 的 `@main` 链接最好也一并更新。
 
 ## 许可
 
