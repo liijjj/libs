@@ -19,21 +19,6 @@
                 "google",
                 "wrapper"
             ]
-        },
-        {
-            "id": "hover-translate",
-            "name": "hover-translate.js",
-            "desc": "网页翻译 + 悬停显示原文，单文件、无依赖，自带语言切换器",
-            "file": "js/hover-translate/hover-translate.js",
-            "version": "2.0.0",
-            "ref": "v2.0.0",
-            "demo": "js/hover-translate/demo.html",
-            "doc": "js/hover-translate/README.md",
-            "tags": [
-                "translate",
-                "i18n",
-                "tooltip"
-            ]
         }
     ]
 }

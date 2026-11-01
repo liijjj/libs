@@ -13,10 +13,10 @@
 ├─ libs.json                  库清单
 ├─ index.html                 目录页（GitHub Pages 首页）
 ├─ js/
-│  └─ hover-translate/        一个库一个目录，主文件和目录同名
-│     ├─ hover-translate.js
+│  └─ gtwrap/                 一个库一个目录，主文件和目录同名
+│     ├─ gtwrap.js
 │     ├─ demo.html
-│     ├─ test.html
+│     ├─ check.html           结构自检页
 │     └─ README.md
 └─ .github/workflows/
    ├─ check.yml               校验 js 语法 + libs.json 里文件是否存在
@@ -35,28 +35,23 @@
 | 写法 | 例子 | 说明 |
 | --- | --- | --- |
 | 跟随最新 | `@main` | 改动后最长约 12 小时生效（有缓存） |
-| 锁定版本 | `@v2.0.0` | tag 不可变，适合长期引用 |
+| 锁定版本 | `@gtwrap-v1.2.0` | tag 不可变，适合长期引用 |
 | 锁定提交 | `@2edd6ec` | 最精确，适合排查问题 |
-| 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js` | 改完立刻生效 |
+| 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js` | 改完立刻生效 |
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@v2.0.0/js/hover-translate/hover-translate.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.2.0/js/gtwrap/gtwrap.js" charset="utf-8"></script>
 ```
 
 ## 现在有哪些
 
 | 库 | 文件 | 版本 | 外链 |
 | --- | --- | --- | --- |
-| gtwrap.js（官方 Google 翻译组件的壳：无横幅、左下角小胶囊） | `js/gtwrap/gtwrap.js` | 1.2.0 | [@gtwrap-v1.2.0](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.2.0/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
-| hover-translate.js（自研：网页翻译 + 悬停看原文） | `js/hover-translate/hover-translate.js` | 2.0.0 | [@v2.0.0](https://cdn.jsdelivr.net/gh/liijjj/libs@v2.0.0/js/hover-translate/hover-translate.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/hover-translate/hover-translate.js) |
+| gtwrap.js（Google 官方翻译组件的壳：无横幅、左下角小胶囊、原文气泡可缩可隐藏） | `js/gtwrap/gtwrap.js` | 1.2.0 | [@gtwrap-v1.2.0](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.2.0/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
 
-演示：<https://liijjj.github.io/libs/js/gtwrap/demo.html>
-自检：<https://liijjj.github.io/libs/js/gtwrap/check.html>
-
-hover-translate 的演示：<https://liijjj.github.io/libs/js/hover-translate/demo.html>
-
-> 之前的名字是 `gthx`（gt = Google Translate，hx = hover），1.2.0 起改成 `hover-translate`。
-> 旧链接 `@v1.0.0/js/gthx/gthx.js` 仍然可用，只是不再更新。
+- 演示：<https://liijjj.github.io/libs/js/gtwrap/demo.html>
+- 自检：<https://liijjj.github.io/libs/js/gtwrap/check.html>
+- 说明：<https://github.com/liijjj/libs/blob/main/js/gtwrap/README.md>
 
 ## 加一个库
 
@@ -67,8 +62,8 @@ hover-translate 的演示：<https://liijjj.github.io/libs/js/hover-translate/de
 4. 要长期引用就打 tag：
 
 ```bash
-git tag -a v2.0.0 -m "foo 1.2.0"
-git push origin v2.0.0
+git tag -a foo-v1.0.0 -m "foo 1.0.0"
+git push origin foo-v1.0.0
 ```
 
 ## 工作流
