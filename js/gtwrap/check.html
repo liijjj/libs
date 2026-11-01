@@ -1,31 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>gtwrap check</title>
-<style>body{font:15px/1.7 system-ui;margin:20px auto;max-width:760px}</style>
+<style>
+    body{font:15px/1.7 system-ui;margin:20px auto;max-width:760px}
+    #out{white-space:pre-wrap;background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;font:12px/1.6 Consolas,monospace}
+</style>
 </head>
 <body>
 <h1>gtwrap self check</h1>
-<p>Structural check: native widget hidden, our pill, banner hidden without display:none, tooltip left alone.</p>
+<p id="target">Structural check only — this page simulates Google's banner and tooltip, then reports what the wrapper does with them.</p>
+<pre id="out" translate="no">running…</pre>
 
 <script>
 window.gtwrapSettings = { languages: ['zh-CN', 'en', 'ja'], position: 'bottom-left' };
 </script>
 <script src="gtwrap.js"></script>
 <script>
+var lines = [];
+function say(s) { lines.push(s); document.getElementById('out').textContent = lines.join('\n'); }
+
 setTimeout(function () {
-    var out = [];
+    say('version=' + (window.GTWrap && GTWrap.version));
+    say('menu=' + Array.prototype.map.call(document.querySelectorAll('.gtwrap-menu [data-lang]'), function (b) {
+        return b.getAttribute('data-lang') + ':' + b.textContent;
+    }).join(' | '));
 
+    // 原生控件
     var host = document.getElementById('gtwrap-host');
-    var hr = host ? host.getBoundingClientRect() : null;
-    out.push('host offscreen=' + (hr && hr.left < -1000));
-    out.push('combo=' + !!document.querySelector('.goog-te-combo'));
+    say('native widget offscreen=' + (host && host.getBoundingClientRect().left < -1000));
 
-    var pill = document.querySelector('.gtwrap-cur');
-    var pr = pill ? pill.getBoundingClientRect() : null;
-    out.push('pill=' + (pr ? Math.round(pr.left) + ',' + Math.round(pr.top) + '/' + innerHeight : 'none'));
-    out.push('menuItems=' + document.querySelectorAll('.gtwrap-menu [data-lang]').length);
-
-    // 横幅结构（和谷歌注入的一样）
+    // 模拟横幅
     var barWrap = document.createElement('div');
     barWrap.className = 'skiptranslate';
     barWrap.style.cssText = 'height:40px;position:relative';
@@ -36,25 +40,45 @@ setTimeout(function () {
     document.body.appendChild(barWrap);
     document.body.style.top = '40px';
 
-    // 原文气泡结构
+    // 模拟原文气泡
     var tipWrap = document.createElement('div');
     tipWrap.className = 'skiptranslate';
     tipWrap.style.cssText = 'position:absolute;top:0;left:0';
     var tip = document.createElement('div');
     tip.id = 'goog-gt-tt';
+    tip.style.cssText = 'width:300px;height:60px;background:#fff;border:1px solid #ccc';
     tip.textContent = 'original text';
     tipWrap.appendChild(tip);
     document.body.appendChild(tipWrap);
 
     setTimeout(function () {
         var bs = getComputedStyle(barWrap);
-        out.push('banner display=' + bs.display + ' h=' + bs.height + ' vis=' + bs.visibility);
-        out.push('body top=' + getComputedStyle(document.body).top);
-        out.push('tooltip wrapper display=' + getComputedStyle(tipWrap).display + ' h=' + getComputedStyle(tipWrap).height);
-        out.push('tooltip display=' + getComputedStyle(tip).display);
-        document.title = out.join(' | ');
+        say('banner display=' + bs.display + ' height=' + bs.height);
+        say('body top=' + getComputedStyle(document.body).top);
+
+        // 一次悬停：气泡应当被拉到目标元素上方
+        var target = document.getElementById('target');
+        target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+        setTimeout(function () {
+            var wr = tipWrap.getBoundingClientRect(), tr = target.getBoundingClientRect();
+            say('tooltip at ' + Math.round(wr.left) + ',' + Math.round(wr.top) +
+                ' target at ' + Math.round(tr.left) + ',' + Math.round(tr.top) +
+                ' → dx=' + Math.round(wr.left - tr.left) + ', above=' + (wr.top < tr.top));
+
+            // 抖动检测：连续 30 次"鼠标落在气泡上"的事件，位置不应再变
+            var x0 = tipWrap.style.left, y0 = tipWrap.style.top;
+            for (var i = 0; i < 30; i++) {
+                tip.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                tipWrap.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            }
+            setTimeout(function () {
+                say('hover-on-tooltip 30× → moved=' + (tipWrap.style.left !== x0 || tipWrap.style.top !== y0));
+                say('tooltip still visible=' + (getComputedStyle(tipWrap).display !== 'none'));
+            }, 400);
+        }, 500);
     }, 100);
-}, 2500);
+}, 2600);
 </script>
 </body>
 </html>

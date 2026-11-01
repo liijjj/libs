@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.1.0';
+    var VERSION = '1.1.1';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -310,13 +310,23 @@
 
     /* 谷歌的原文气泡会飘到很远的地方（有时甩到右边），这里把它拉回鼠标下面 */
     function bindTooltipFix() {
-        var timers = [];
-        function place(el) {
+        var timers = [], lastTarget = null;
+
+        function tipWrap() {
             var tt = document.querySelector('#goog-gt-tt');
-            if (!tt || !tt.parentNode) return;
-            var wrap = tt.parentNode;
+            return tt && tt.parentNode ? tt.parentNode : null;
+        }
+
+        function insideTip(el) {
+            var w = tipWrap();
+            return !!(w && (w === el || w.contains(el)));
+        }
+
+        function place(el) {
+            var wrap = tipWrap();
+            if (!wrap) return;
             var wr = wrap.getBoundingClientRect();
-            if (!wr.width || !wr.height) return;              // 还没显示
+            if (!wr.width || !wr.height) return;                 // 还没显示
             if (getComputedStyle(wrap).display === 'none') return;
             if (!el.getBoundingClientRect) return;
 
@@ -330,18 +340,28 @@
             if (top < 8) top = r.bottom + 10;
             if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
 
-            wrap.style.left = Math.round(left + window.pageXOffset) + 'px';
-            wrap.style.top = Math.round(top + window.pageYOffset) + 'px';
+            var nx = Math.round(left + window.pageXOffset);
+            var ny = Math.round(top + window.pageYOffset);
+            // 已经在目标位置附近就别再动，避免"挪一下→鼠标下换元素→再挪"的抖动
+            if (Math.abs(wr.left + window.pageXOffset - nx) < 4 && Math.abs(wr.top + window.pageYOffset - ny) < 4) return;
+
+            wrap.style.left = nx + 'px';
+            wrap.style.top = ny + 'px';
         }
 
         document.addEventListener('mouseover', function (e) {
             var el = e.target;
             if (!el || el.nodeType !== 1) return;
+            // 鼠标落在气泡自己身上 / 我们自己的控件上：一律不要重新定位
+            if (insideTip(el)) return;
+            if (el.closest && el.closest('.gtwrap,#gtwrap-host')) return;
+            if (el === lastTarget) return;
+            lastTarget = el;
+
             for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
             timers = [
                 setTimeout(function () { place(el); }, 60),
-                setTimeout(function () { place(el); }, 350),
-                setTimeout(function () { place(el); }, 900)
+                setTimeout(function () { place(el); }, 350)
             ];
         }, true);
     }
