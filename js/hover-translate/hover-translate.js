@@ -16,7 +16,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.1.0';
+    var VERSION = '1.1.1';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -183,8 +183,9 @@
             '.ht-sw[data-pos="top-left"]{top:12px;left:12px}',
             '.ht-sw[data-pos="bottom-right"]{bottom:12px;right:12px}',
             '.ht-sw[data-pos="bottom-left"]{bottom:12px;left:12px}',
-            '.ht-sw.ht-static{position:static}',
-            '.ht-sw-cur{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid rgba(0,0,0,.13);',
+            '.ht-sw[data-pos$="right"] .ht-sw-menu{left:auto;right:0}',
+            '.ht-sw[data-pos^="bottom"] .ht-sw-menu{top:auto;bottom:calc(100% + 6px)}',
+            '.ht-sw.ht-static{position:static}',            '.ht-sw-cur{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid rgba(0,0,0,.13);',
             'border-radius:999px;padding:6px 13px;box-shadow:0 1px 4px rgba(0,0,0,.13);cursor:pointer;font:inherit;color:inherit}',
             '.ht-sw-cur:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}',
             '.ht-sw-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #5f6368}',
@@ -669,7 +670,6 @@
         root.className = 'ht-sw';
         root.setAttribute('translate', 'no');
         root.setAttribute('data-pos', cfg.ui_position || 'top-right');
-
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'ht-sw-cur';
@@ -723,7 +723,14 @@
 
         state.uiRoot = root;
         state.uiName = nameEl;
+        applyUIPosition();
         updateUI();
+    }
+
+    /* 让 ui_position 既能初始化时生效，也能通过 config() 实时改 */
+    function applyUIPosition() {
+        if (!state.uiRoot) return;
+        state.uiRoot.setAttribute('data-pos', cfg.ui_position || 'top-right');
     }
 
     function updateUI() {
@@ -787,6 +794,11 @@
     }
 
     function init() {
+        if (window.gthxSettings && !window.hoverTranslateSettings) {
+            try {
+                console.warn('[hover-translate] window.gthxSettings 是 1.0（gthx）的旧名字，现在请用 window.hoverTranslateSettings');
+            } catch (e) { }
+        }
         if (window.hoverTranslateSettings) extend(cfg, window.hoverTranslateSettings);
         normalizeCfg();
         injectCSS();
@@ -823,6 +835,7 @@
             extend(cfg, o);
             normalizeCfg();
             if (o && o.ui === true && !state.uiBuilt) buildUI();
+            if (o && o.ui_position !== undefined) applyUIPosition();
             if (o && (o.show_original !== undefined || o.tooltip !== undefined)) {
                 for (var i = 0; i < state.spans.length; i++) {
                     var sp = state.spans[i];
