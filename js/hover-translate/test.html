@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gthx demo — hover to see the original</title>
+<title>hover-translate demo — hover to see the original</title>
 <style>
     :root { color-scheme: light; }
     body {
@@ -29,7 +29,7 @@
 <body>
 
 <h1>How machine translation quietly changed the web</h1>
-<p class="meta">A demo article for the <code>gthx.js</code> widget — published on 1 November 2026</p>
+<p class="meta">A demo article for the <code>hover-translate.js</code> widget — published on 1 November 2026</p>
 
 <p>For most of the internet's history, language was a hard border. A reader in Shanghai could not
 read a German forum thread, and a developer in Berlin could not read a Japanese API reference.
@@ -66,7 +66,7 @@ original text, including the whitespace around it.</p>
 <div id="diag" translate="no">diag: waiting…</div>
 
 <script>
-window.gthxSettings = {
+window.hoverTranslateSettings = {
     default_language: 'auto',
     languages: ['zh-CN', 'en', 'ja'],
     initial_language: 'zh-CN',
@@ -75,7 +75,7 @@ window.gthxSettings = {
     debug: true
 };
 </script>
-<script src="gthx.js" charset="utf-8"></script>
+<script src="hover-translate.js" charset="utf-8"></script>
 <script>
 (function () {
     var diag = document.getElementById('diag');
@@ -94,55 +94,55 @@ window.gthxSettings = {
 
     var started = false;
 
-    document.addEventListener('gthx:done', async function (e) {
+    document.addEventListener('ht:done', async function (e) {
         if (started) return;
         started = true;
-        var tip = document.querySelector('.gthx-tip');
+        var tip = document.querySelector('.ht-tip');
 
         // 1. 译文
-        var spans = document.querySelectorAll('.gthx-s');
+        var spans = document.querySelectorAll('.ht-s');
         check('译文已应用', spans.length > 8, 'spans=' + spans.length + ' lang=' + e.detail.lang);
         var p = document.querySelector('p');
         check('中文已替换正文', /[\u4e00-\u9fff]/.test(p.textContent));
         say('译文片段: "' + p.textContent.trim().slice(0, 46) + '…"');
 
         // 2. 悬停
-        var target = p.querySelector('.gthx-s') || spans[0];
+        var target = p.querySelector('.ht-s') || spans[0];
         var tr = target.getBoundingClientRect();
         target.dispatchEvent(new MouseEvent('mouseover', {
             bubbles: true, clientX: tr.left + 60, clientY: tr.top + 12
         }));
         await wait(120);
-        check('悬停出现气泡', tip.classList.contains('gthx-on'));
-        check('气泡内容是原文', tip.querySelector('.gthx-tip-t').textContent === target.__gthx.core,
-            JSON.stringify(tip.querySelector('.gthx-tip-t').textContent.slice(0, 40)));
-        check('气泡标注原文语言', /原文/.test(tip.querySelector('.gthx-tip-l').textContent),
-            tip.querySelector('.gthx-tip-l').textContent);
+        check('悬停出现气泡', tip.classList.contains('ht-on'));
+        check('气泡内容是原文', tip.querySelector('.ht-tip-t').textContent === target.__ht.core,
+            JSON.stringify(tip.querySelector('.ht-tip-t').textContent.slice(0, 40)));
+        check('气泡标注原文语言', /原文/.test(tip.querySelector('.ht-tip-l').textContent),
+            tip.querySelector('.ht-tip-l').textContent);
 
         // 3. 移出
         target.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
         await wait(250);
-        check('移出后气泡隐藏', !tip.classList.contains('gthx-on'));
+        check('移出后气泡隐藏', !tip.classList.contains('ht-on'));
 
         // 4. 还原
-        GTHX.restore();
+        HoverTranslate.restore();
         await wait(200);
-        check('还原后无残留 span', document.querySelectorAll('.gthx-s').length === 0);
+        check('还原后无残留 span', document.querySelectorAll('.ht-s').length === 0);
         check('还原后文本逐字一致', document.querySelector('p').textContent === pBodyOrig);
         check('还原后 meta 一致', document.querySelector('p.meta').textContent === pMetaOrig);
-        check('切换器回到原文', /原文/.test(document.querySelector('.gthx-sw-name').textContent));
+        check('切换器回到原文', /原文/.test(document.querySelector('.ht-sw-name').textContent));
 
         // 5. 换成日语
-        GTHX.translate('ja');
+        HoverTranslate.translate('ja');
         await wait(2500);
         var ja = document.querySelector('p');
         check('切换到日语', /[\u3040-\u30ff]/.test(ja.textContent), ja.textContent.trim().slice(0, 30));
-        check('日语下仍保留原文', !!(ja.querySelector('.gthx-s') && ja.querySelector('.gthx-s').__gthx.core));
+        check('日语下仍保留原文', !!(ja.querySelector('.ht-s') && ja.querySelector('.ht-s').__ht.core));
 
         // 6. 回到中文，并保持气泡展开方便截图
-        GTHX.translate('zh-CN');
+        HoverTranslate.translate('zh-CN');
         await wait(2000);
-        var all = document.querySelectorAll('.gthx-s');
+        var all = document.querySelectorAll('.ht-s');
         var s2 = null;
         for (var i = 0; i < all.length; i++) {
             if (all[i].textContent.length > 120) s2 = all[i];
@@ -155,7 +155,7 @@ window.gthxSettings = {
             }));
         }
         say('----  ' + pass + ' passed, ' + fail + ' failed  ----');
-        window.__gthxTestDone = true;
+        window.__htTestDone = true;
     });
 })();
 </script>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gthx.js — 网页翻译，悬停看原文</title>
+<title>hover-translate.js — 网页翻译，悬停看原文</title>
 <style>
     :root { color-scheme: light; }
     body {
@@ -65,7 +65,7 @@ to get the page back exactly as it was written.</p>
 
 <!-- ------------------------------------------------------------------ -->
 <script>
-window.gthxSettings = {
+window.hoverTranslateSettings = {
     default_language: 'auto',        // 原文语言，auto = 自动检测
     languages: ['zh-CN', 'en', 'ja'],// 切换器里可选的语言
     auto_translate: 'zh-CN',         // 启动后自动翻译成简体中文；'' 或 false = 不自动翻译
@@ -73,6 +73,6 @@ window.gthxSettings = {
     ui_position: 'top-right'         // 切换器位置
 };
 </script>
-<script src="gthx.js" charset="utf-8"></script>
+<script src="hover-translate.js" charset="utf-8"></script>
 </body>
 </html>

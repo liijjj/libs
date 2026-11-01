@@ -1,12 +1,12 @@
-# gthx.js — 网页翻译 + 悬停显示原文
+# hover-translate.js — 网页翻译 + 悬停显示原文
 
-`gthx.js` 是一个自包含的网页翻译脚本：把整页文字翻译成目标语言，**鼠标停在译文上时弹出小气泡显示原文**，移开即消失。
+`hover-translate.js` 是一个自包含的网页翻译脚本：把整页文字翻译成目标语言，**鼠标停在译文上时弹出小气泡显示原文**，移开即消失。
 
 它替代了原来的 `gtranslate()` 方案（`float.js` + `lib.min.js`），不再依赖 gtranslate 的 CDN 和它的接口。
 
 ```
-gthx.js      脚本本体（约 35 KB，无依赖，ES5 + Promise，默认不输出任何日志）
-index.html   成品页面（无调试面板）
+hover-translate.js      脚本本体（约 35 KB，无依赖，ES5 + Promise，默认不输出任何日志）
+demo.html    成品页面（无调试面板）
 test.html    自测页面（12 项自动检查 + 调试面板，仅开发用）
 ```
 
@@ -44,7 +44,7 @@ GET https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=z
 
 ```html
 <script>
-window.gthxSettings = {
+window.hoverTranslateSettings = {
     default_language: 'auto',          // 原文语言，auto = 自动检测
     languages: ['zh-CN', 'en', 'ja'],  // 切换器里可选的语言
     auto_translate: 'zh-CN',           // 启动后自动翻译成这个语言；'' 或 false = 不自动翻译
@@ -52,7 +52,7 @@ window.gthxSettings = {
     ui_position: 'top-right'           // 切换器位置
 };
 </script>
-<script src="gthx.js" charset="utf-8"></script>
+<script src="hover-translate.js" charset="utf-8"></script>
 ```
 
 `auto_translate` 每次启动都生效，会盖过"上次选择的语言"；
@@ -61,14 +61,14 @@ window.gthxSettings = {
 手动调用：
 
 ```js
-GTHX.translate('zh-CN');   // 翻译成简体中文（Promise）
-GTHX.restore();            // 还原原文（逐字还原，空白也不动）
-GTHX.toggle();             // 原文 / 第一个语言 之间切换
-GTHX.language;             // 当前目标语言，'' 表示原文
-GTHX.config({ show_original: false });   // 运行时也能改
+HoverTranslate.translate('zh-CN');   // 翻译成简体中文（Promise）
+HoverTranslate.restore();            // 还原原文（逐字还原，空白也不动）
+HoverTranslate.toggle();             // 原文 / 第一个语言 之间切换
+HoverTranslate.language;             // 当前目标语言，'' 表示原文
+HoverTranslate.config({ show_original: false });   // 运行时也能改
 ```
 
-事件：`gthx:done`、`gthx:error`、`gthx:restore`（都挂在 `document` 上）。
+事件：`ht:done`、`ht:error`、`ht:restore`（都挂在 `document` 上）。
 
 ## 三、替换你现在的 `gtranslate()`
 
@@ -77,9 +77,9 @@ GTHX.config({ show_original: false });   // 运行时也能改
 
 ```js
 function gtranslate(){
-    if (window.GTHX || window.__gthxLoading) return;
-    window.__gthxLoading = true;
-    window.gthxSettings = {
+    if (window.HoverTranslate || window.__htLoading) return;
+    window.__htLoading = true;
+    window.hoverTranslateSettings = {
         default_language: 'auto',
         languages: ['zh-CN', 'en', 'ja'],
         auto_translate: '',          // 想开机自动翻译就填 'zh-CN'
@@ -87,7 +87,7 @@ function gtranslate(){
         ui_position: 'top-right'
     };
     var s = document.createElement('script');
-    s.src = '/js/gthx.js';           // 改成你的实际路径
+    s.src = '/js/hover-translate.js';           // 改成你的实际路径
     s.defer = true;
     document.head.appendChild(s);
 }
@@ -120,7 +120,7 @@ function gtranslate(){
 | `batch_items` | `20` | 单次请求最多文本段数 |
 | `request_gap` | `120` | 两批请求之间的间隔 |
 | `endpoint` / `client` | Google `translate_a/t` | 换接口时才需要动 |
-| `storage_key` / `cache_key` | `__GTHX_STATE` / `__GTHX_CACHE` | 语言记忆与译文缓存 |
+| `storage_key` / `cache_key` | `__HT_STATE` / `__HT_CACHE` | 语言记忆与译文缓存 |
 | `debug` | `false` | 打开后才有 `console.log` |
 
 ## 五、原文是从哪来的（源码里为什么搜不到）
@@ -133,22 +133,22 @@ function gtranslate(){
 var raw  = textNode.nodeValue;                     // ← 页面上此刻的真实文字
 var span = document.createElement('span');
 span.textContent = 译文;
-span.__gthx = { orig: raw, core: raw.trim(), src: 'en' };   // ← 原文挂在这个 span 上
+span.__ht = { orig: raw, core: raw.trim(), src: 'en' };   // ← 原文挂在这个 span 上
 textNode.parentNode.replaceChild(span, textNode);
 ```
 
-于是每一段译文 `<span>` 自己带着自己的原文（`__gthx.orig` 是逐字原文，`core` 是折叠空白后的
-展示版）。悬停时只是把 `span.__gthx.core` 塞进气泡的 `textContent`，**不发任何请求**，
+于是每一段译文 `<span>` 自己带着自己的原文（`__ht.orig` 是逐字原文，`core` 是折叠空白后的
+展示版）。悬停时只是把 `span.__ht.core` 塞进气泡的 `textContent`，**不发任何请求**，
 所以是瞬时的；同一个字在页面上出现两次，也各存各的。
 
 可以自己验证：翻译后按 F12 选中一段译文，控制台执行
 
 ```js
-$0.__gthx            // { orig: "For most of the internet's history…", core: "…", src: "en" }
-$0.__gthx.orig        // 逐字原文
+$0.__ht            // { orig: "For most of the internet's history…", core: "…", src: "en" }
+$0.__ht.orig        // 逐字原文
 ```
 
-`GTHX.restore()` 就是拿 `__gthx.orig` 生成一个新的文本节点换回去，所以还原是逐字的，
+`HoverTranslate.restore()` 就是拿 `__ht.orig` 生成一个新的文本节点换回去，所以还原是逐字的，
 不是"再翻译回去"。
 
 ## 六、实现上的几个细节
@@ -173,7 +173,7 @@ $0.__gthx.orig        // 逐字原文
 ## 八、自测
 
 `test.html` 跑完会自动执行 12 项检查并打印在页面左下角（**这个调试面板只在 test.html 里，
-`gthx.js` 和 `index.html` 都没有，脚本默认也不向控制台输出任何东西**）：
+`hover-translate.js` 和 `index.html` 都没有，脚本默认也不向控制台输出任何东西**）：
 
 译文已应用 / 悬停出现气泡 / 气泡内容是原文 / 标注原文语言 / 移出后隐藏 /
 还原无残留 / 还原逐字一致 / 切换到日语 / 日语下仍保留原文 ……

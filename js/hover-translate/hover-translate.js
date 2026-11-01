@@ -1,22 +1,22 @@
 /*!
- * gthx.js  v1.0.0
+ * hover-translate.js  v1.1.0
  * 网页翻译（Google 翻译接口）+ 悬停显示原文
  *
  * 不依赖 gtranslate 的 float.js / lib.min.js，单文件即可工作。
  *
  * 用法一（自动）：
- *   <script src="gthx.js" charset="utf-8"></script>
- *   window.gthxSettings = { default_language:'auto', languages:['zh-CN','en','ja'] };
+ *   <script src="hover-translate.js" charset="utf-8"></script>
+ *   window.hoverTranslateSettings = { default_language:'auto', languages:['zh-CN','en','ja'] };
  *
  * 用法二（手动）：
- *   GTHX.translate('zh-CN');   // 翻译整页
- *   GTHX.restore();            // 还原原文
- *   GTHX.language;             // 当前目标语言（空字符串 = 原文）
+ *   HoverTranslate.translate('zh-CN');   // 翻译整页
+ *   HoverTranslate.restore();            // 还原原文
+ *   HoverTranslate.language;             // 当前目标语言（空字符串 = 原文）
  */
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.0.0';
+    var VERSION = '1.1.0';
 
     /* ------------------------------------------------------------ 语言名称 */
     var LANG_CN = {
@@ -76,8 +76,8 @@
         source_label: '原文',
 
         observe: true,                   // 监听动态内容并自动翻译
-        storage_key: '__GTHX_STATE',     // 记住上次选择的语言
-        cache_key: '__GTHX_CACHE',       // 译文缓存（跨页面复用）
+        storage_key: '__HT_STATE',     // 记住上次选择的语言
+        cache_key: '__HT_CACHE',       // 译文缓存（跨页面复用）
         debug: false
     };
 
@@ -112,7 +112,7 @@
     function log() {
         if (!cfg.debug) return;
         var args = Array.prototype.slice.call(arguments);
-        args.unshift('[gthx]');
+        args.unshift('[hover-translate]');
         try { console.log.apply(console, args); } catch (e) { }
     }
 
@@ -154,14 +154,14 @@
 
     /* --------------------------------------------------------------- 样式 */
     function injectCSS() {
-        if (document.getElementById('gthx-style')) return;
+        if (document.getElementById('ht-style')) return;
         var css = [
             /* 译文片段 */
-            '.gthx-s{transition:background-color .12s ease}',
-            '.gthx-s.gthx-hl:hover{background:rgba(26,115,232,.13);border-radius:3px;box-shadow:0 0 0 2px rgba(26,115,232,.13)}',
+            '.ht-s{transition:background-color .12s ease}',
+            '.ht-s.ht-hl:hover{background:rgba(26,115,232,.13);border-radius:3px;box-shadow:0 0 0 2px rgba(26,115,232,.13)}',
 
             /* 原文气泡 */
-            '.gthx-tip{position:fixed;z-index:2147483647;left:0;top:0;box-sizing:border-box;',
+            '.ht-tip{position:fixed;z-index:2147483647;left:0;top:0;box-sizing:border-box;',
             'max-width:min(460px,calc(100vw - 24px));background:#fff;color:#202124;',
             'border:1px solid rgba(0,0,0,.14);border-radius:10px;',
             'box-shadow:0 6px 24px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.08);',
@@ -170,34 +170,34 @@
             'pointer-events:none;opacity:0;visibility:hidden;transform:translateY(3px);',
             'transition:opacity .12s ease,transform .12s ease,visibility .12s}',
 
-            '.gthx-tip.gthx-on{opacity:1;visibility:visible;transform:none}',
-            '.gthx-tip .gthx-tip-l{font-size:11px;line-height:1.4;color:#80868b;margin:0 0 3px;letter-spacing:.02em}',
-            '.gthx-tip .gthx-tip-t{white-space:pre-wrap}',
-            '.gthx-tip .gthx-arrow{position:absolute;width:9px;height:9px;background:#fff}',
-            '.gthx-tip[data-pos="below"] .gthx-arrow{top:-5px;border-top:1px solid rgba(0,0,0,.14);border-left:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
-            '.gthx-tip[data-pos="above"] .gthx-arrow{bottom:-5px;border-right:1px solid rgba(0,0,0,.14);border-bottom:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
+            '.ht-tip.ht-on{opacity:1;visibility:visible;transform:none}',
+            '.ht-tip .ht-tip-l{font-size:11px;line-height:1.4;color:#80868b;margin:0 0 3px;letter-spacing:.02em}',
+            '.ht-tip .ht-tip-t{white-space:pre-wrap}',
+            '.ht-tip .ht-arrow{position:absolute;width:9px;height:9px;background:#fff}',
+            '.ht-tip[data-pos="below"] .ht-arrow{top:-5px;border-top:1px solid rgba(0,0,0,.14);border-left:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
+            '.ht-tip[data-pos="above"] .ht-arrow{bottom:-5px;border-right:1px solid rgba(0,0,0,.14);border-bottom:1px solid rgba(0,0,0,.14);transform:rotate(45deg)}',
 
             /* 语言切换器 */
-            '.gthx-sw{position:fixed;z-index:2147483000;font:400 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#3c4043}',
-            '.gthx-sw[data-pos="top-right"]{top:12px;right:12px}',
-            '.gthx-sw[data-pos="top-left"]{top:12px;left:12px}',
-            '.gthx-sw[data-pos="bottom-right"]{bottom:12px;right:12px}',
-            '.gthx-sw[data-pos="bottom-left"]{bottom:12px;left:12px}',
-            '.gthx-sw.gthx-static{position:static}',
-            '.gthx-sw-cur{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid rgba(0,0,0,.13);',
+            '.ht-sw{position:fixed;z-index:2147483000;font:400 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#3c4043}',
+            '.ht-sw[data-pos="top-right"]{top:12px;right:12px}',
+            '.ht-sw[data-pos="top-left"]{top:12px;left:12px}',
+            '.ht-sw[data-pos="bottom-right"]{bottom:12px;right:12px}',
+            '.ht-sw[data-pos="bottom-left"]{bottom:12px;left:12px}',
+            '.ht-sw.ht-static{position:static}',
+            '.ht-sw-cur{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid rgba(0,0,0,.13);',
             'border-radius:999px;padding:6px 13px;box-shadow:0 1px 4px rgba(0,0,0,.13);cursor:pointer;font:inherit;color:inherit}',
-            '.gthx-sw-cur:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}',
-            '.gthx-sw-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #5f6368}',
-            '.gthx-sw-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:132px;max-height:60vh;overflow:auto;',
+            '.ht-sw-cur:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}',
+            '.ht-sw-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #5f6368}',
+            '.ht-sw-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:132px;max-height:60vh;overflow:auto;',
             'background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:4px;display:none}',
-            '.gthx-sw.gthx-open .gthx-sw-menu{display:block}',
-            '.gthx-sw-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 11px;border-radius:6px;',
+            '.ht-sw.ht-open .ht-sw-menu{display:block}',
+            '.ht-sw-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 11px;border-radius:6px;',
             'cursor:pointer;font:inherit;color:inherit;white-space:nowrap}',
-            '.gthx-sw-menu button:hover{background:#f1f3f4}',
-            '.gthx-sw-menu button[aria-selected="true"]{color:#1a73e8;font-weight:600}'
+            '.ht-sw-menu button:hover{background:#f1f3f4}',
+            '.ht-sw-menu button[aria-selected="true"]{color:#1a73e8;font-weight:600}'
         ].join('');
         var style = document.createElement('style');
-        style.id = 'gthx-style';
+        style.id = 'ht-style';
         style.appendChild(document.createTextNode(css));
         (document.head || document.documentElement).appendChild(style);
     }
@@ -208,15 +208,15 @@
     function buildTip() {
         if (tip) return;
         tip = document.createElement('div');
-        tip.className = 'gthx-tip';
+        tip.className = 'ht-tip';
         tip.setAttribute('translate', 'no');
         tip.setAttribute('role', 'tooltip');
         tipLabel = document.createElement('div');
-        tipLabel.className = 'gthx-tip-l';
+        tipLabel.className = 'ht-tip-l';
         tipText = document.createElement('div');
-        tipText.className = 'gthx-tip-t';
+        tipText.className = 'ht-tip-t';
         tipArrow = document.createElement('div');
-        tipArrow.className = 'gthx-arrow';
+        tipArrow.className = 'ht-arrow';
         tip.appendChild(tipLabel);
         tip.appendChild(tipText);
         tip.appendChild(tipArrow);
@@ -254,9 +254,9 @@
     }
 
     function showTip(span, x, y) {
-        if (!cfg.tooltip || !span || !span.__gthx) return;
+        if (!cfg.tooltip || !span || !span.__ht) return;
         clearTimeout(hideTimer);
-        var g = span.__gthx;
+        var g = span.__ht;
         var name = langName(g.src);
         tipLabel.textContent = cfg.source_label + (name ? ' · ' + name : '');
         tipText.textContent = g.core;
@@ -273,18 +273,18 @@
 
         state.anchor = span;
         placeTip(span);
-        tip.classList.add('gthx-on');
+        tip.classList.add('ht-on');
     }
 
     function hideTip(now) {
         if (!tip) return;
         clearTimeout(hideTimer);
         if (now) {
-            tip.classList.remove('gthx-on');
+            tip.classList.remove('ht-on');
             state.anchor = null;
         } else {
             hideTimer = setTimeout(function () {
-                tip.classList.remove('gthx-on');
+                tip.classList.remove('ht-on');
                 state.anchor = null;
             }, cfg.hide_delay);
         }
@@ -292,7 +292,7 @@
 
     function segOf(node) {
         while (node && node.nodeType === 1) {
-            if (node.classList && node.classList.contains('gthx-s')) return node;
+            if (node.classList && node.classList.contains('ht-s')) return node;
             node = node.parentNode;
         }
         return null;
@@ -336,7 +336,7 @@
         }, false);
 
         window.addEventListener('scroll', function () {
-            if (state.anchor && tip && tip.classList.contains('gthx-on')) placeTip(state.anchor);
+            if (state.anchor && tip && tip.classList.contains('ht-on')) placeTip(state.anchor);
         }, true);
 
         window.addEventListener('resize', function () {
@@ -361,11 +361,11 @@
         if (SKIP_TAGS[tag]) return true;
         if (el.isContentEditable) return true;
         if (el.closest) {
-            if (el.closest('.gthx-tip,.gthx-sw,.notranslate,[translate="no"],[contenteditable="true"]')) return true;
+            if (el.closest('.ht-tip,.ht-sw,.notranslate,[translate="no"],[contenteditable="true"]')) return true;
         } else {
             var p = el;
             while (p && p.nodeType === 1) {
-                if (p.classList && (p.classList.contains('notranslate') || p.classList.contains('gthx-tip') || p.classList.contains('gthx-sw'))) return true;
+                if (p.classList && (p.classList.contains('notranslate') || p.classList.contains('ht-tip') || p.classList.contains('ht-sw'))) return true;
                 if (p.getAttribute && p.getAttribute('translate') === 'no') return true;
                 p = p.parentNode;
             }
@@ -403,10 +403,10 @@
         if (!parent || node.nodeValue !== seg.raw) return false;
 
         var span = document.createElement('span');
-        span.className = 'gthx-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' gthx-hl' : '');
+        span.className = 'ht-s' + ((cfg.hover_highlight && cfg.tooltip) ? ' ht-hl' : '');
         span.setAttribute('translate', 'no');
         span.textContent = seg.lead + (row.text || seg.core) + seg.trail;
-        span.__gthx = { orig: seg.raw, core: seg.core, src: row.src || '' };
+        span.__ht = { orig: seg.raw, core: seg.core, src: row.src || '' };
 
         parent.replaceChild(span, node);
         state.spans.push(span);
@@ -416,8 +416,8 @@
     function restoreSpans() {
         for (var i = 0; i < state.spans.length; i++) {
             var span = state.spans[i];
-            if (span.parentNode && span.__gthx) {
-                span.parentNode.replaceChild(document.createTextNode(span.__gthx.orig), span);
+            if (span.parentNode && span.__ht) {
+                span.parentNode.replaceChild(document.createTextNode(span.__ht.orig), span);
             }
         }
         state.spans.length = 0;
@@ -610,13 +610,13 @@
         state.promise = runTranslation(gen, lang).then(function () {
             state.running = false;
             updateUI();
-            if (gen === state.gen) fire('gthx:done', { lang: lang, count: state.spans.length });
+            if (gen === state.gen) fire('ht:done', { lang: lang, count: state.spans.length });
             if (state.again) { state.again = false; translatePage(); }
             return state.lang;
         }, function (err) {
             state.running = false;
             updateUI();
-            fire('gthx:error', { error: err });
+            fire('ht:error', { error: err });
         });
         return state.promise;
     }
@@ -642,7 +642,7 @@
         hideTip(true);
         saveState();
         updateUI();
-        fire('gthx:restore', {});
+        fire('ht:restore', {});
         return Promise.resolve();
     }
 
@@ -666,23 +666,23 @@
 
         var langs = cfg.languages || [];
         var root = document.createElement('div');
-        root.className = 'gthx-sw';
+        root.className = 'ht-sw';
         root.setAttribute('translate', 'no');
         root.setAttribute('data-pos', cfg.ui_position || 'top-right');
 
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'gthx-sw-cur';
+        btn.className = 'ht-sw-cur';
         btn.setAttribute('aria-haspopup', 'true');
         var nameEl = document.createElement('span');
-        nameEl.className = 'gthx-sw-name';
+        nameEl.className = 'ht-sw-name';
         var arrow = document.createElement('span');
-        arrow.className = 'gthx-sw-arrow';
+        arrow.className = 'ht-sw-arrow';
         btn.appendChild(nameEl);
         btn.appendChild(arrow);
 
         var menu = document.createElement('div');
-        menu.className = 'gthx-sw-menu';
+        menu.className = 'ht-sw-menu';
         menu.setAttribute('role', 'menu');
 
         var all = [{ code: '', name: '原文' }];
@@ -698,7 +698,7 @@
             b.textContent = item.name;
             b.addEventListener('click', function (e) {
                 e.stopPropagation();
-                root.classList.remove('gthx-open');
+                root.classList.remove('ht-open');
                 if (item.code) translate(item.code); else restore();
             });
             menu.appendChild(b);
@@ -709,13 +709,13 @@
 
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
-            root.classList.toggle('gthx-open');
+            root.classList.toggle('ht-open');
         });
-        document.addEventListener('click', function () { root.classList.remove('gthx-open'); });
+        document.addEventListener('click', function () { root.classList.remove('ht-open'); });
 
         var host = cfg.ui_container ? document.querySelector(cfg.ui_container) : null;
         if (host) {
-            root.classList.add('gthx-static');
+            root.classList.add('ht-static');
             host.appendChild(root);
         } else {
             document.body.appendChild(root);
@@ -753,12 +753,12 @@
                     if (!segOf(m.target.parentNode)) { interesting = true; break; }
                     continue;
                 }
-                if (m.target && m.target.nodeType === 1 && m.target.closest && m.target.closest('.gthx-tip,.gthx-sw')) continue;
+                if (m.target && m.target.nodeType === 1 && m.target.closest && m.target.closest('.ht-tip,.ht-sw')) continue;
                 // 忽略我们自己替换文本节点产生的变动
                 var ours = true;
                 for (var a = 0; a < m.addedNodes.length; a++) {
                     var an = m.addedNodes[a];
-                    if (!(an.nodeType === 1 && an.classList && an.classList.contains('gthx-s'))) { ours = false; break; }
+                    if (!(an.nodeType === 1 && an.classList && an.classList.contains('ht-s'))) { ours = false; break; }
                 }
                 if (ours) {
                     for (var r = 0; r < m.removedNodes.length; r++) {
@@ -787,7 +787,7 @@
     }
 
     function init() {
-        if (window.gthxSettings) extend(cfg, window.gthxSettings);
+        if (window.hoverTranslateSettings) extend(cfg, window.hoverTranslateSettings);
         normalizeCfg();
         injectCSS();
         buildTip();
@@ -814,7 +814,7 @@
     }
 
     /* ------------------------------------------------------------ 导出 */
-    var GTHX = {
+    var HoverTranslate = {
         version: VERSION,
         translate: translate,
         restore: restore,
@@ -827,8 +827,8 @@
                 for (var i = 0; i < state.spans.length; i++) {
                     var sp = state.spans[i];
                     if (!sp.parentNode) continue;
-                    if (cfg.tooltip && cfg.hover_highlight) sp.classList.add('gthx-hl');
-                    else sp.classList.remove('gthx-hl');
+                    if (cfg.tooltip && cfg.hover_highlight) sp.classList.add('ht-hl');
+                    else sp.classList.remove('ht-hl');
                 }
                 if (!cfg.tooltip) hideTip(true);
             }
@@ -840,7 +840,7 @@
         get settings() { return cfg; }
     };
 
-    window.GTHX = GTHX;
+    window.HoverTranslate = HoverTranslate;
 
     var run = function () { if (cfg.auto_init !== false) init(); };
     ready(run);
