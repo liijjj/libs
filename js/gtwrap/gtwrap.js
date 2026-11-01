@@ -23,6 +23,7 @@
         page_language: '',            // 原文语言；空 = 读 <html lang>
         languages: ['zh-CN', 'en', 'ja'],
         position: 'bottom-left',      // bottom-left / bottom-right / top-left / top-right
+        hide_banner: true,            // 去掉谷歌注入的顶部横幅（以及 body 的 40px 下移）
         auto_translate: '',           // 'zh-CN' = 打开就翻；空 = 不自动
         restore_label: '原文',
         storage_key: '__GTWRAP_LANG',
@@ -63,9 +64,9 @@
         if (document.getElementById('gtwrap-style')) return;
         var css = [
             /* 顶部横幅和它带来的整体下移，一律去掉 */
-            'html body{top:0 !important}',
-            'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{display:none !important}',
-            'body > .skiptranslate{display:none !important}',
+            cfg.hide_banner === false ? '' : 'html body{top:0 !important}',
+            cfg.hide_banner === false ? '' : 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{display:none !important}',
+            cfg.hide_banner === false ? '' : 'body > .skiptranslate{display:none !important}',
 
             /* 官方控件本体挪到屏幕外，只留着给我们的 UI 驱动 */
             '#gtwrap-host{position:fixed !important;left:-9999px !important;top:-9999px !important;',
