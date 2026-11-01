@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>gtwrap check</title>
+<style>body{font:15px/1.7 system-ui;margin:20px auto;max-width:700px}</style>
+</head>
+<body>
+<h1>gtwrap self check</h1>
+<p>Structural check: hidden native widget, our pill, banner suppression.</p>
+
+<script>
+window.gtwrapSettings = { languages: ['zh-CN', 'en'], position: 'bottom-left' };
+</script>
+<script src="gtwrap.js"></script>
+<script>
+setTimeout(function () {
+    var out = [];
+
+    // 1. 原生控件在屏幕外
+    var host = document.getElementById('gtwrap-host');
+    var hr = host ? host.getBoundingClientRect() : null;
+    out.push('host offscreen=' + (hr && hr.left < -1000));
+    out.push('combo=' + !!document.querySelector('.goog-te-combo'));
+
+    // 2. 我们的小胶囊在左下角
+    var pill = document.querySelector('.gtwrap-cur');
+    var pr = pill ? pill.getBoundingClientRect() : null;
+    out.push('pill=' + (pr ? Math.round(pr.left) + ',' + Math.round(pr.top) + ' vh=' + innerHeight : 'none'));
+
+    // 3. 模拟谷歌注入的横幅（iframe + body top:40px）
+    var bar = document.createElement('iframe');
+    bar.className = 'VIpgJd-ZVi9od-ORHb-OEVmcd skiptranslate';
+    bar.style.cssText = 'width:100%;height:40px;border:0';
+    document.body.appendChild(bar);
+    document.body.style.top = '40px';
+    document.body.style.position = 'relative';
+
+    setTimeout(function () {
+        var cs = getComputedStyle(bar);
+        var bs = getComputedStyle(document.body);
+        out.push('banner display=' + cs.display);
+        out.push('body top=' + bs.top + ' pos=' + bs.position);
+        out.push('scrollable=' + (document.documentElement.scrollHeight > innerHeight));
+        document.title = out.join(' | ');
+    }, 100);
+}, 2500);
+</script>
+</body>
+</html>
