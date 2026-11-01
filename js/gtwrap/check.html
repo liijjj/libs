@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>gtwrap check</title>
-<style>body{font:15px/1.7 system-ui;margin:20px auto;max-width:700px}</style>
+<style>body{font:15px/1.7 system-ui;margin:20px auto;max-width:760px}</style>
 </head>
 <body>
 <h1>gtwrap self check</h1>
-<p>Structural check: hidden native widget, our pill, banner suppression, tooltip visibility.</p>
+<p>Structural check: native widget hidden, our pill, banner hidden without display:none, tooltip left alone.</p>
 
 <script>
-window.gtwrapSettings = { languages: ['zh-CN', 'en'], position: 'bottom-left' };
+window.gtwrapSettings = { languages: ['zh-CN', 'en', 'ja'], position: 'bottom-left' };
 </script>
 <script src="gtwrap.js"></script>
 <script>
@@ -23,8 +23,9 @@ setTimeout(function () {
     var pill = document.querySelector('.gtwrap-cur');
     var pr = pill ? pill.getBoundingClientRect() : null;
     out.push('pill=' + (pr ? Math.round(pr.left) + ',' + Math.round(pr.top) + '/' + innerHeight : 'none'));
+    out.push('menuItems=' + document.querySelectorAll('.gtwrap-menu [data-lang]').length);
 
-    // 模拟谷歌注入的横幅：<div class="skiptranslate"><iframe class="VIpgJd-ZVi9od-ORHb-OEVmcd"></iframe></div>
+    // 横幅结构（和谷歌注入的一样）
     var barWrap = document.createElement('div');
     barWrap.className = 'skiptranslate';
     barWrap.style.cssText = 'height:40px;position:relative';
@@ -34,9 +35,8 @@ setTimeout(function () {
     barWrap.appendChild(bar);
     document.body.appendChild(barWrap);
     document.body.style.top = '40px';
-    document.body.style.position = 'relative';
 
-    // 模拟谷歌的原文气泡：<div class="skiptranslate"><div id="goog-gt-tt">…</div></div>
+    // 原文气泡结构
     var tipWrap = document.createElement('div');
     tipWrap.className = 'skiptranslate';
     tipWrap.style.cssText = 'position:absolute;top:0;left:0';
@@ -47,10 +47,11 @@ setTimeout(function () {
     document.body.appendChild(tipWrap);
 
     setTimeout(function () {
-        out.push('banner display=' + getComputedStyle(barWrap).display + '/' + getComputedStyle(bar).display);
+        var bs = getComputedStyle(barWrap);
+        out.push('banner display=' + bs.display + ' h=' + bs.height + ' vis=' + bs.visibility);
         out.push('body top=' + getComputedStyle(document.body).top);
-        out.push('tooltip wrapper display=' + getComputedStyle(tipWrap).display);
-        out.push('tooltip itself display=' + getComputedStyle(tip).display);
+        out.push('tooltip wrapper display=' + getComputedStyle(tipWrap).display + ' h=' + getComputedStyle(tipWrap).height);
+        out.push('tooltip display=' + getComputedStyle(tip).display);
         document.title = out.join(' | ');
     }, 100);
 }, 2500);

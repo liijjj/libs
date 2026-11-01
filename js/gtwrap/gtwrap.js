@@ -65,12 +65,14 @@
     function injectCSS() {
         if (document.getElementById('gtwrap-style')) return;
         var hideBanner = cfg.hide_banner !== false;
+        var bannerOff = 'height:0 !important;overflow:hidden !important;opacity:0 !important;pointer-events:none !important';
         var css = [
-            /* 顶部横幅：只藏"包着横幅 iframe 的那个 div"，别误伤原文气泡（它外层也是 .skiptranslate） */
+            /* 横幅：不用 display:none（那个 iframe 是组件自己的框架，藏死可能连带气泡一起失灵），
+               改成"高度 0 + 溢出隐藏 + 透明"，视觉上去掉、DOM 里还活着 */
             hideBanner ? 'html body{top:0 !important}' : '',
-            hideBanner ? 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{display:none !important}' : '',
-            hideBanner ? 'body > .skiptranslate:has(> iframe.VIpgJd-ZVi9od-ORHb-OEVmcd){display:none !important}' : '',
-            hideBanner ? 'body > .skiptranslate[style*="height:40px"],body > .skiptranslate[style*="height: 40px"]{display:none !important}' : '',
+            hideBanner ? 'body > .skiptranslate:has(> iframe.VIpgJd-ZVi9od-ORHb-OEVmcd){' + bannerOff + '}' : '',
+            hideBanner ? 'body > .skiptranslate[style*="height:40px"],body > .skiptranslate[style*="height: 40px"]{' + bannerOff + '}' : '',
+            hideBanner ? 'iframe.VIpgJd-ZVi9od-ORHb-OEVmcd{height:0 !important;min-height:0 !important}' : '',
 
             /* 官方控件本体挪到屏幕外，只留着给我们的 UI 驱动 */
             '#gtwrap-host{position:fixed !important;left:-9999px !important;top:-9999px !important;',
