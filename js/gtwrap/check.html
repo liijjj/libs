@@ -5,7 +5,7 @@
 </head>
 <body>
 <h1>gtwrap self check</h1>
-<p>Structural check: hidden native widget, our pill, banner suppression.</p>
+<p>Structural check: hidden native widget, our pill, banner suppression, tooltip visibility.</p>
 
 <script>
 window.gtwrapSettings = { languages: ['zh-CN', 'en'], position: 'bottom-left' };
@@ -15,31 +15,42 @@ window.gtwrapSettings = { languages: ['zh-CN', 'en'], position: 'bottom-left' };
 setTimeout(function () {
     var out = [];
 
-    // 1. 原生控件在屏幕外
     var host = document.getElementById('gtwrap-host');
     var hr = host ? host.getBoundingClientRect() : null;
     out.push('host offscreen=' + (hr && hr.left < -1000));
     out.push('combo=' + !!document.querySelector('.goog-te-combo'));
 
-    // 2. 我们的小胶囊在左下角
     var pill = document.querySelector('.gtwrap-cur');
     var pr = pill ? pill.getBoundingClientRect() : null;
-    out.push('pill=' + (pr ? Math.round(pr.left) + ',' + Math.round(pr.top) + ' vh=' + innerHeight : 'none'));
+    out.push('pill=' + (pr ? Math.round(pr.left) + ',' + Math.round(pr.top) + '/' + innerHeight : 'none'));
 
-    // 3. 模拟谷歌注入的横幅（iframe + body top:40px）
+    // 模拟谷歌注入的横幅：<div class="skiptranslate"><iframe class="VIpgJd-ZVi9od-ORHb-OEVmcd"></iframe></div>
+    var barWrap = document.createElement('div');
+    barWrap.className = 'skiptranslate';
+    barWrap.style.cssText = 'height:40px;position:relative';
     var bar = document.createElement('iframe');
     bar.className = 'VIpgJd-ZVi9od-ORHb-OEVmcd skiptranslate';
     bar.style.cssText = 'width:100%;height:40px;border:0';
-    document.body.appendChild(bar);
+    barWrap.appendChild(bar);
+    document.body.appendChild(barWrap);
     document.body.style.top = '40px';
     document.body.style.position = 'relative';
 
+    // 模拟谷歌的原文气泡：<div class="skiptranslate"><div id="goog-gt-tt">…</div></div>
+    var tipWrap = document.createElement('div');
+    tipWrap.className = 'skiptranslate';
+    tipWrap.style.cssText = 'position:absolute;top:0;left:0';
+    var tip = document.createElement('div');
+    tip.id = 'goog-gt-tt';
+    tip.textContent = 'original text';
+    tipWrap.appendChild(tip);
+    document.body.appendChild(tipWrap);
+
     setTimeout(function () {
-        var cs = getComputedStyle(bar);
-        var bs = getComputedStyle(document.body);
-        out.push('banner display=' + cs.display);
-        out.push('body top=' + bs.top + ' pos=' + bs.position);
-        out.push('scrollable=' + (document.documentElement.scrollHeight > innerHeight));
+        out.push('banner display=' + getComputedStyle(barWrap).display + '/' + getComputedStyle(bar).display);
+        out.push('body top=' + getComputedStyle(document.body).top);
+        out.push('tooltip wrapper display=' + getComputedStyle(tipWrap).display);
+        out.push('tooltip itself display=' + getComputedStyle(tip).display);
         document.title = out.join(' | ');
     }, 100);
 }, 2500);
