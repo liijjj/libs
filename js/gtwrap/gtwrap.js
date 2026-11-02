@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.0';
+    var VERSION = '1.4.0b';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -38,7 +38,6 @@
         hide_banner: true,            // 去掉顶部横幅
         show_original: true,          // false = 完全隐藏原文气泡
         tooltip_size: 'google',       // google = 官方原样；compact = 小号气泡（会覆盖字号/内边距）
-        tooltip_position: 'above',    // above / below / corner
         hide_tooltip_parts: true,     // 去掉气泡的 logo 头 + 评分脚
         theme: 'auto',                // auto = 跟随页面深浅色；light / dark 强制
 
@@ -325,12 +324,7 @@
         } catch (e) { }
     }
 
-    /* ------------------------------------------------ 气泡：定位 + 去掉头尾 */
-    function tipWrap() {
-        var tt = document.querySelector('#goog-gt-tt');
-        return tt && tt.parentNode ? tt.parentNode : null;
-    }
-
+    /* ------------------------------------------------ 气泡：只去头尾，不动位置 */
     function dressTip() {
         if (!cfg.hide_tooltip_parts) return;
         var tt = document.querySelector('#goog-gt-tt');
@@ -338,7 +332,7 @@
         if (state.dressed === tt.innerHTML) return;
         state.dressed = tt.innerHTML;
 
-        // 真实结构：#goog-gt-tt > #goog-gt-vt > [logo+原文, 正文, 评分脚]
+        // #goog-gt-tt > #goog-gt-vt > [logo+原文, 正文, 评分脚]
         // 只保留第二个（正文），其余隐藏
         var vt = tt.querySelector('#goog-gt-vt');
         var box = vt || tt;
@@ -351,69 +345,9 @@
         }
     }
 
-    function bindTooltipFix() {
-        var timers = [], lastTarget = null;
-
-        function insideTip(el) {
-            var w = tipWrap();
-            return !!(w && (w === el || w.contains(el)));
-        }
-
-        function place(el) {
-            var wrap = tipWrap();
-            if (!wrap) return;
-            var wr = wrap.getBoundingClientRect();
-            if (!wr.width || !wr.height) return;
-            if (getComputedStyle(wrap).display === 'none') return;
-            if (!el.getBoundingClientRect) return;
-
-            var vw = window.innerWidth, vh = window.innerHeight;
-            var nx, ny;
-
-            if (cfg.tooltip_position === 'corner') {
-                nx = Math.round(vw - wr.width - 16 + window.pageXOffset);
-                ny = Math.round(vh - wr.height - 56 + window.pageYOffset);
-            } else {
-                var r = el.getBoundingClientRect();
-                if (!r.width && !r.height) return;
-
-                var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
-                left = Math.max(8, Math.min(left, vw - wr.width - 8));
-
-                var top;
-                if (cfg.tooltip_position === 'below') {
-                    top = r.bottom + 10;
-                    if (top + wr.height > vh - 8) top = r.top - wr.height - 10;
-                } else {
-                    top = r.top - wr.height - 10;
-                    if (top < 8) top = r.bottom + 10;
-                }
-                if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
-
-                nx = Math.round(left + window.pageXOffset);
-                ny = Math.round(top + window.pageYOffset);
-            }
-
-            if (Math.abs(wr.left + window.pageXOffset - nx) < 4 && Math.abs(wr.top + window.pageYOffset - ny) < 4) return;
-
-            wrap.style.left = nx + 'px';
-            wrap.style.top = ny + 'px';
-        }
-
-        document.addEventListener('mouseover', function (e) {
-            var el = e.target;
-            if (!el || el.nodeType !== 1) return;
-            if (insideTip(el)) return;
-            if (el.closest && el.closest('.gtwrap,#gtwrap-host')) return;
-            if (el === lastTarget) return;
-            lastTarget = el;
-
-            for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
-            timers = [
-                setTimeout(function () { place(el); dressTip(); }, 60),
-                setTimeout(function () { place(el); dressTip(); }, 350)
-            ];
-        }, true);
+    /* 只观察气泡有没有出现（用来去头尾），不做任何定位，不碰 body */
+    function watchTip() {
+        setInterval(dressTip, 500);
     }
 
     /* ------------------------------------------------------------ 初始化 */
@@ -421,7 +355,7 @@
         if (window.gtwrapSettings) extend(cfg, window.gtwrapSettings);
         injectCSS();
         applyTheme();
-        bindTooltipFix();
+        watchTip();
         loadWidget();
 
         // 页面在运行中切深浅色时跟上
