@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.5.1';
+    var VERSION = '1.5.2';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -382,15 +382,15 @@
             var tt = document.querySelector('#goog-gt-tt');
             if (!tt || !el.getBoundingClientRect) return;
 
-            // 谷歌可能把气泡放在一个 wrapper 里，也可能直接挂 body 下。
-            // 只搬"可以安全搬的"节点，body/html 一律不碰。
+            // 谷歌可能把气泡放在 wrapper 里，也可能直接挂 body 下；
+            // body/html 一律不碰，只搬可以安全搬的那个节点
             var wrap = tt.parentNode;
             var layerEl = document.getElementById('gtwrap-tip-layer');
             var target = (wrap && wrap !== document.body && wrap !== document.documentElement && wrap !== layerEl) ? wrap : tt;
 
-            var br = tt.getBoundingClientRect();          // 用气泡本体量尺寸
-            if (!br.width || !br.height) return;          // 隐藏状态（没尺寸）就什么都不做
-
+            // —— 1.4.0 的算法：按容器自身尺寸定位，间距 10px ——
+            var wr = target.getBoundingClientRect();
+            if (!wr.width || !wr.height) return;
             var cs = getComputedStyle(tt);
             if (cs.display === 'none' || cs.visibility === 'hidden') return;
 
@@ -398,47 +398,37 @@
             var nx, ny;
 
             if (cfg.tooltip_position === 'corner') {
-                nx = Math.round(vw - br.width - 16);
-                ny = Math.round(vh - br.height - 56);
+                nx = Math.round(vw - wr.width - 16);
+                ny = Math.round(vh - wr.height - 56);
             } else {
                 var r = el.getBoundingClientRect();
                 if (!r.width && !r.height) return;
 
-                var left = r.left + Math.min(r.width, 240) / 2 - br.width / 2;
-                left = Math.max(8, Math.min(left, vw - br.width - 8));
+                var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
+                left = Math.max(8, Math.min(left, vw - wr.width - 8));
 
                 var top;
                 if (cfg.tooltip_position === 'below') {
                     top = r.bottom + 10;
-                    if (top + br.height > vh - 8) top = r.top - br.height - 10;
+                    if (top + wr.height > vh - 8) top = r.top - wr.height - 10;
                 } else {
-                    top = r.top - br.height - 10;
+                    top = r.top - wr.height - 10;
                     if (top < 8) top = r.bottom + 10;
                 }
-                if (top + br.height > vh - 8) top = Math.max(8, vh - br.height - 8);
+                if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
 
                 nx = Math.round(left);
                 ny = Math.round(top);
             }
 
-            var tr = target.getBoundingClientRect();
-            if (Math.abs(tr.left - nx) < 4 && Math.abs(tr.top - ny) < 4) return;
+            if (Math.abs(wr.left - nx) < 4 && Math.abs(wr.top - ny) < 4) return;
 
-            // 搬进固定层：它溢出多少都不会撑出滚动条，也不改页面任何布局
+            // 唯一新增：搬进固定层，怎么溢出都不影响页面滚动条
             var layer = tipLayer();
             if (target.parentNode !== layer) layer.appendChild(target);
             if (target === tt) target.style.position = 'absolute';
             target.style.left = nx + 'px';
             target.style.top = ny + 'px';
-
-            // 外层容器可能有 padding / margin，按气泡本体的实测位置再校正一次，
-            // 保证气泡正好落在 nx,ny（距离稳定）
-            var after = tt.getBoundingClientRect();
-            var dx = after.left - nx, dy = after.top - ny;
-            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-                target.style.left = Math.round(nx - dx) + 'px';
-                target.style.top = Math.round(ny - dy) + 'px';
-            }
         }
 
         document.addEventListener('mouseover', function (e) {
