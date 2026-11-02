@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.2';
+    var VERSION = '1.5.0';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -328,7 +328,24 @@
     /* ------------------------------------------------ 气泡：定位 + 去掉头尾 */
     function tipWrap() {
         var tt = document.querySelector('#goog-gt-tt');
-        return tt && tt.parentNode ? tt.parentNode : null;
+        if (!tt) return null;
+        var wrap = tt.parentNode;
+        // 父节点如果就是 body/html，绝不能动它（否则整页变 fixed、不能滚动）
+        if (!wrap || wrap === document.body || wrap === document.documentElement) return null;
+        return wrap;
+    }
+
+    /* 固定层：把谷歌的气泡容器搬进来，它再怎么溢出也影响不到文档尺寸 */
+    function tipLayer() {
+        var l = document.getElementById('gtwrap-tip-layer');
+        if (!l) {
+            l = document.createElement('div');
+            l.id = 'gtwrap-tip-layer';
+            l.setAttribute('translate', 'no');
+            l.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:2147483000';
+            document.body.appendChild(l);
+        }
+        return l;
     }
 
     function dressTip() {
@@ -351,73 +368,68 @@
         }
     }
 
-    /* 气泡隐藏时把它停在 0,0 并改成 fixed：否则它留在页面下方会撑出竖直/横向滚动条 */
-    function parkTip() {
-        var tt = document.querySelector('#goog-gt-tt');
-        if (!tt || !tt.parentNode) return;
-        var wrap = tt.parentNode;
-        if (!wrap || !wrap.style) return;
-
-        var cs = getComputedStyle(tt);
-        var r = wrap.getBoundingClientRect();
-        var hidden = cs.display === 'none' || cs.visibility === 'hidden' || !r.width || !r.height;
-
-        if (!hidden) return;
-        if (wrap.style.position !== 'fixed') wrap.style.position = 'fixed';
-        if (wrap.style.left !== '0px' || wrap.style.top !== '0px') {
-            wrap.style.left = '0px';
-            wrap.style.top = '0px';
-        }
-    }
-
     function bindTooltipFix() {
         var timers = [], lastTarget = null;
 
         function insideTip(el) {
             var w = tipWrap();
-            return !!(w && (w === el || w.contains(el)));
+            if (w && (w === el || w.contains(el))) return true;
+            var tt = document.querySelector('#goog-gt-tt');
+            return !!(tt && (tt === el || tt.contains(el)));
         }
 
         function place(el) {
-            var wrap = tipWrap();
-            if (!wrap) return;
-            var wr = wrap.getBoundingClientRect();
-            if (!wr.width || !wr.height) return;
-            if (getComputedStyle(wrap).display === 'none') return;
-            if (!el.getBoundingClientRect) return;
+            var tt = document.querySelector('#goog-gt-tt');
+            if (!tt || !el.getBoundingClientRect) return;
+
+            // 谷歌可能把气泡放在一个 wrapper 里，也可能直接挂 body 下。
+            // 只搬"可以安全搬的"节点，body/html 一律不碰。
+            var wrap = tt.parentNode;
+            var layerEl = document.getElementById('gtwrap-tip-layer');
+            var target = (wrap && wrap !== document.body && wrap !== document.documentElement && wrap !== layerEl) ? wrap : tt;
+
+            var br = tt.getBoundingClientRect();          // 用气泡本体量尺寸
+            if (!br.width || !br.height) return;          // 隐藏状态（没尺寸）就什么都不做
+
+            var cs = getComputedStyle(tt);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return;
 
             var vw = window.innerWidth, vh = window.innerHeight;
             var nx, ny;
 
             if (cfg.tooltip_position === 'corner') {
-                nx = Math.round(vw - wr.width - 16);
-                ny = Math.round(vh - wr.height - 56);
+                nx = Math.round(vw - br.width - 16);
+                ny = Math.round(vh - br.height - 56);
             } else {
                 var r = el.getBoundingClientRect();
                 if (!r.width && !r.height) return;
 
-                var left = r.left + Math.min(r.width, 240) / 2 - wr.width / 2;
-                left = Math.max(8, Math.min(left, vw - wr.width - 8));
+                var left = r.left + Math.min(r.width, 240) / 2 - br.width / 2;
+                left = Math.max(8, Math.min(left, vw - br.width - 8));
 
                 var top;
                 if (cfg.tooltip_position === 'below') {
                     top = r.bottom + 10;
-                    if (top + wr.height > vh - 8) top = r.top - wr.height - 10;
+                    if (top + br.height > vh - 8) top = r.top - br.height - 10;
                 } else {
-                    top = r.top - wr.height - 10;
+                    top = r.top - br.height - 10;
                     if (top < 8) top = r.bottom + 10;
                 }
-                if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
+                if (top + br.height > vh - 8) top = Math.max(8, vh - br.height - 8);
 
                 nx = Math.round(left);
                 ny = Math.round(top);
             }
 
-            if (Math.abs(wr.left - nx) < 4 && Math.abs(wr.top - ny) < 4) return;
+            var tr = target.getBoundingClientRect();
+            if (Math.abs(tr.left - nx) < 4 && Math.abs(tr.top - ny) < 4) return;
 
-            wrap.style.position = 'fixed';   // 不参与页面滚动范围，避免撑出横向滚动条
-            wrap.style.left = nx + 'px';
-            wrap.style.top = ny + 'px';
+            // 搬进固定层：它溢出多少都不会撑出滚动条，也不改页面任何布局
+            var layer = tipLayer();
+            if (target.parentNode !== layer) layer.appendChild(target);
+            if (target === tt) target.style.position = 'absolute';
+            target.style.left = nx + 'px';
+            target.style.top = ny + 'px';
         }
 
         document.addEventListener('mouseover', function (e) {
@@ -451,11 +463,6 @@
         } catch (e) { }
         var n = 0;
         var iv = setInterval(function () { applyTheme(); if (++n > 10) clearInterval(iv); }, 2000);
-
-        // 气泡一出现就归位（隐藏时停在 0,0，不参与页面尺寸）
-        setInterval(parkTip, 500);
-        document.addEventListener('mouseout', function () { setTimeout(parkTip, 400); }, true);
-        window.addEventListener('scroll', function () { setTimeout(parkTip, 300); }, true);
     }
 
     window.GTWrap = {
