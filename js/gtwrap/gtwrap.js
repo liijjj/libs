@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.5.0';
+    var VERSION = '1.5.1';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -430,6 +430,15 @@
             if (target === tt) target.style.position = 'absolute';
             target.style.left = nx + 'px';
             target.style.top = ny + 'px';
+
+            // 外层容器可能有 padding / margin，按气泡本体的实测位置再校正一次，
+            // 保证气泡正好落在 nx,ny（距离稳定）
+            var after = tt.getBoundingClientRect();
+            var dx = after.left - nx, dy = after.top - ny;
+            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+                target.style.left = Math.round(nx - dx) + 'px';
+                target.style.top = Math.round(ny - dy) + 'px';
+            }
         }
 
         document.addEventListener('mouseover', function (e) {
