@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.0';
+    var VERSION = '1.4.1';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -371,8 +371,8 @@
             var nx, ny;
 
             if (cfg.tooltip_position === 'corner') {
-                nx = Math.round(vw - wr.width - 16 + window.pageXOffset);
-                ny = Math.round(vh - wr.height - 56 + window.pageYOffset);
+                nx = Math.round(vw - wr.width - 16);
+                ny = Math.round(vh - wr.height - 56);
             } else {
                 var r = el.getBoundingClientRect();
                 if (!r.width && !r.height) return;
@@ -390,12 +390,13 @@
                 }
                 if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
 
-                nx = Math.round(left + window.pageXOffset);
-                ny = Math.round(top + window.pageYOffset);
+                nx = Math.round(left);
+                ny = Math.round(top);
             }
 
-            if (Math.abs(wr.left + window.pageXOffset - nx) < 4 && Math.abs(wr.top + window.pageYOffset - ny) < 4) return;
+            if (Math.abs(wr.left - nx) < 4 && Math.abs(wr.top - ny) < 4) return;
 
+            wrap.style.position = 'fixed';   // 不参与页面滚动范围，避免撑出横向滚动条
             wrap.style.left = nx + 'px';
             wrap.style.top = ny + 'px';
         }
