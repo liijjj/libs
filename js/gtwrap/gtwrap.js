@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.1';
+    var VERSION = '1.4.2';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -351,6 +351,25 @@
         }
     }
 
+    /* 气泡隐藏时把它停在 0,0 并改成 fixed：否则它留在页面下方会撑出竖直/横向滚动条 */
+    function parkTip() {
+        var tt = document.querySelector('#goog-gt-tt');
+        if (!tt || !tt.parentNode) return;
+        var wrap = tt.parentNode;
+        if (!wrap || !wrap.style) return;
+
+        var cs = getComputedStyle(tt);
+        var r = wrap.getBoundingClientRect();
+        var hidden = cs.display === 'none' || cs.visibility === 'hidden' || !r.width || !r.height;
+
+        if (!hidden) return;
+        if (wrap.style.position !== 'fixed') wrap.style.position = 'fixed';
+        if (wrap.style.left !== '0px' || wrap.style.top !== '0px') {
+            wrap.style.left = '0px';
+            wrap.style.top = '0px';
+        }
+    }
+
     function bindTooltipFix() {
         var timers = [], lastTarget = null;
 
@@ -432,6 +451,11 @@
         } catch (e) { }
         var n = 0;
         var iv = setInterval(function () { applyTheme(); if (++n > 10) clearInterval(iv); }, 2000);
+
+        // 气泡一出现就归位（隐藏时停在 0,0，不参与页面尺寸）
+        setInterval(parkTip, 500);
+        document.addEventListener('mouseout', function () { setTimeout(parkTip, 400); }, true);
+        window.addEventListener('scroll', function () { setTimeout(parkTip, 300); }, true);
     }
 
     window.GTWrap = {
