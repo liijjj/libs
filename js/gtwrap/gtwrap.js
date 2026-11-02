@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.3.0';
+    var VERSION = '1.4.0';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -37,7 +37,7 @@
 
         hide_banner: true,            // 去掉顶部横幅
         show_original: true,          // false = 完全隐藏原文气泡
-        tooltip_size: 'compact',      // compact / google
+        tooltip_size: 'google',       // google = 官方原样；compact = 小号气泡（会覆盖字号/内边距）
         tooltip_position: 'above',    // above / below / corner
         hide_tooltip_parts: true,     // 去掉气泡的 logo 头 + 评分脚
         theme: 'auto',                // auto = 跟随页面深浅色；light / dark 强制
@@ -145,8 +145,8 @@
                 '#goog-gt-tt *{font-size:12.5px !important}'
             ].join('') : '',
 
-            /* 去掉 logo 头和评分脚 */
-            cfg.hide_tooltip_parts ? '#goog-gt-tt .goog-te-balloon-header,#goog-gt-tt .goog-te-balloon-footer{display:none !important}' : '',
+            /* 气泡只留正文：谷歌的结构是 #goog-gt-tt > #goog-gt-vt > [头, 正文, 脚] */
+            cfg.hide_tooltip_parts ? '#goog-gt-vt:has(> :nth-child(3)) > *:not(:nth-child(2)){display:none !important}' : '',
 
             /* 深色模式：气泡和 select 都跟着页面走 */
             '.gtwrap-dark #goog-gt-tt{background:#202124 !important;color:#e8eaed !important;border-color:#3c4043 !important}',
@@ -338,18 +338,16 @@
         if (state.dressed === tt.innerHTML) return;
         state.dressed = tt.innerHTML;
 
-        var kids = tt.children;
-        if (kids.length < 2) return;      // 结构认不出来就别乱动
+        // 真实结构：#goog-gt-tt > #goog-gt-vt > [logo+原文, 正文, 评分脚]
+        // 只保留第二个（正文），其余隐藏
+        var vt = tt.querySelector('#goog-gt-vt');
+        var box = vt || tt;
+        var kids = box.children;
+        if (kids.length < 2) return;
 
         for (var i = 0; i < kids.length; i++) {
-            var k = kids[i];
-            if (k.getAttribute('data-gtwrap-keep')) continue;
-            var text = (k.textContent || '').trim();
-            var hasImg = !!k.querySelector('img,svg');
-            var hasBtn = !!k.querySelector('button,[role="button"]');
-            var isFooter = hasBtn || /评分|反馈|rate|feedback/i.test(text);
-            var isHeader = hasImg && text.length < 40;
-            if (isHeader || isFooter) k.style.display = 'none';
+            if (i === 1) continue;
+            kids[i].style.display = 'none';
         }
     }
 

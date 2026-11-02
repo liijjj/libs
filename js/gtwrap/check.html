@@ -4,12 +4,11 @@
 <style>
     body{font:15px/1.7 system-ui;margin:20px auto;max-width:760px;background:#16181c;color:#e6e8eb}
     #out{white-space:pre-wrap;background:#0b0d10;color:#cfd6df;padding:12px;border-radius:8px;font:12px/1.6 Consolas,monospace}
-    a{color:#8ab4f8}
 </style>
 </head>
 <body>
 <h1>gtwrap self check</h1>
-<p id="target">深色页面上的结构自检：原生 select、跟随页面配色、去掉气泡的 logo 头和评分脚。</p>
+<p id="target">深色页面上的结构自检：原生 select、跟随配色、气泡只留正文（#goog-gt-vt 的第二个子元素）。</p>
 <pre id="out" translate="no">running…</pre>
 
 <script>
@@ -24,42 +23,49 @@ setTimeout(function () {
     say('version=' + (window.GTWrap && GTWrap.version));
 
     var sel = document.querySelector('.gtwrap-select');
-    say('select=' + (sel ? 'yes' : 'no') + ' options=' + (sel ? sel.options.length : 0) +
-        ' labels=' + (sel ? Array.prototype.map.call(sel.options, function (o) { return o.textContent; }).join(' / ') : ''));
     var r = sel ? sel.getBoundingClientRect() : null;
-    say('select at ' + (r ? Math.round(r.left) + ',' + Math.round(r.top) + '/' + innerHeight : '-'));
+    say('select=' + (sel ? 'yes' : 'no') + ' at ' + (r ? Math.round(r.left) + ',' + Math.round(r.top) : '-') +
+        ' bg=' + (sel ? getComputedStyle(sel).backgroundColor : '-'));
+    say('dark=' + document.documentElement.classList.contains('gtwrap-dark'));
 
-    say('dark class=' + document.documentElement.classList.contains('gtwrap-dark'));
-    say('select bg=' + (sel ? getComputedStyle(sel).backgroundColor : '-') +
-        ' color=' + (sel ? getComputedStyle(sel).color : '-'));
-
-    // 模拟谷歌的原文气泡：头部（logo + 原文）/ 正文 / 脚部（评分 + 按钮）
+    // 按真实结构造气泡：#goog-gt-tt > #goog-gt-vt > [头, 正文, 脚]
     var wrap = document.createElement('div');
     wrap.className = 'skiptranslate';
     wrap.style.cssText = 'position:absolute;top:0;left:0';
+
     var tt = document.createElement('div');
     tt.id = 'goog-gt-tt';
     tt.style.cssText = 'width:320px;background:#fff;padding:8px';
-    tt.innerHTML =
-        '<div class="goog-te-balloon-header"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="16" height="16"> 原文</div>' +
-        '<div class="goog-te-balloon-body">Now let\'s think about this question...</div>' +
-        '<div class="goog-te-balloon-footer">请对此翻译评分 <button>👍</button><button>👎</button></div>';
+
+    var vt = document.createElement('div');
+    vt.id = 'goog-gt-vt';
+
+    var head = document.createElement('div');
+    head.id = 'goog-gt-tt-head';
+    head.textContent = 'G 原文';
+    var body = document.createElement('div');
+    body.id = 'goog-gt-tt-body';
+    body.textContent = 'Now let us think about this question...';
+    var foot = document.createElement('div');
+    foot.id = 'goog-gt-tt-foot';
+    foot.innerHTML = '请对此翻译评分 <button>👍</button><button>👎</button>';
+
+    vt.appendChild(head); vt.appendChild(body); vt.appendChild(foot);
+    tt.appendChild(vt);
     wrap.appendChild(tt);
     document.body.appendChild(wrap);
 
-    var target = document.getElementById('target');
-    target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    document.getElementById('target').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
 
     setTimeout(function () {
-        var kids = tt.children;
-        say('tooltip children=' + kids.length +
-            ' header=' + getComputedStyle(kids[0]).display +
-            ' body=' + getComputedStyle(kids[1]).display +
-            ' footer=' + getComputedStyle(kids[2]).display);
+        say('head=' + getComputedStyle(head).display +
+            ' body=' + getComputedStyle(body).display +
+            ' foot=' + getComputedStyle(foot).display);
+        say('tooltip font-size=' + getComputedStyle(tt).fontSize + ' line-height=' + getComputedStyle(tt).lineHeight);
         say('tooltip bg=' + getComputedStyle(tt).backgroundColor);
         document.title = 'check done';
-    }, 600);
-}, 2600);
+    }, 700);
+}, 3600);
 </script>
 </body>
 </html>
