@@ -11,7 +11,7 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.5.2';
+    var VERSION = '1.4.0';
 
     var NAMES = {
         'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
@@ -328,24 +328,7 @@
     /* ------------------------------------------------ 气泡：定位 + 去掉头尾 */
     function tipWrap() {
         var tt = document.querySelector('#goog-gt-tt');
-        if (!tt) return null;
-        var wrap = tt.parentNode;
-        // 父节点如果就是 body/html，绝不能动它（否则整页变 fixed、不能滚动）
-        if (!wrap || wrap === document.body || wrap === document.documentElement) return null;
-        return wrap;
-    }
-
-    /* 固定层：把谷歌的气泡容器搬进来，它再怎么溢出也影响不到文档尺寸 */
-    function tipLayer() {
-        var l = document.getElementById('gtwrap-tip-layer');
-        if (!l) {
-            l = document.createElement('div');
-            l.id = 'gtwrap-tip-layer';
-            l.setAttribute('translate', 'no');
-            l.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:2147483000';
-            document.body.appendChild(l);
-        }
-        return l;
+        return tt && tt.parentNode ? tt.parentNode : null;
     }
 
     function dressTip() {
@@ -373,33 +356,23 @@
 
         function insideTip(el) {
             var w = tipWrap();
-            if (w && (w === el || w.contains(el))) return true;
-            var tt = document.querySelector('#goog-gt-tt');
-            return !!(tt && (tt === el || tt.contains(el)));
+            return !!(w && (w === el || w.contains(el)));
         }
 
         function place(el) {
-            var tt = document.querySelector('#goog-gt-tt');
-            if (!tt || !el.getBoundingClientRect) return;
-
-            // 谷歌可能把气泡放在 wrapper 里，也可能直接挂 body 下；
-            // body/html 一律不碰，只搬可以安全搬的那个节点
-            var wrap = tt.parentNode;
-            var layerEl = document.getElementById('gtwrap-tip-layer');
-            var target = (wrap && wrap !== document.body && wrap !== document.documentElement && wrap !== layerEl) ? wrap : tt;
-
-            // —— 1.4.0 的算法：按容器自身尺寸定位，间距 10px ——
-            var wr = target.getBoundingClientRect();
+            var wrap = tipWrap();
+            if (!wrap) return;
+            var wr = wrap.getBoundingClientRect();
             if (!wr.width || !wr.height) return;
-            var cs = getComputedStyle(tt);
-            if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            if (getComputedStyle(wrap).display === 'none') return;
+            if (!el.getBoundingClientRect) return;
 
             var vw = window.innerWidth, vh = window.innerHeight;
             var nx, ny;
 
             if (cfg.tooltip_position === 'corner') {
-                nx = Math.round(vw - wr.width - 16);
-                ny = Math.round(vh - wr.height - 56);
+                nx = Math.round(vw - wr.width - 16 + window.pageXOffset);
+                ny = Math.round(vh - wr.height - 56 + window.pageYOffset);
             } else {
                 var r = el.getBoundingClientRect();
                 if (!r.width && !r.height) return;
@@ -417,18 +390,14 @@
                 }
                 if (top + wr.height > vh - 8) top = Math.max(8, vh - wr.height - 8);
 
-                nx = Math.round(left);
-                ny = Math.round(top);
+                nx = Math.round(left + window.pageXOffset);
+                ny = Math.round(top + window.pageYOffset);
             }
 
-            if (Math.abs(wr.left - nx) < 4 && Math.abs(wr.top - ny) < 4) return;
+            if (Math.abs(wr.left + window.pageXOffset - nx) < 4 && Math.abs(wr.top + window.pageYOffset - ny) < 4) return;
 
-            // 唯一新增：搬进固定层，怎么溢出都不影响页面滚动条
-            var layer = tipLayer();
-            if (target.parentNode !== layer) layer.appendChild(target);
-            if (target === tt) target.style.position = 'absolute';
-            target.style.left = nx + 'px';
-            target.style.top = ny + 'px';
+            wrap.style.left = nx + 'px';
+            wrap.style.top = ny + 'px';
         }
 
         document.addEventListener('mouseover', function (e) {

@@ -35,19 +35,19 @@
 | 写法 | 例子 | 说明 |
 | --- | --- | --- |
 | 跟随最新 | `@main` | 改动后最长约 12 小时生效（有缓存） |
-| 锁定版本 | `@gtwrap-v1.5.2` | tag 不可变，适合长期引用 |
+| 锁定版本 | `@gtwrap-v1.4.0` | tag 不可变，适合长期引用 |
 | 锁定提交 | `@2edd6ec` | 最精确，适合排查问题 |
 | 刷新缓存 | `https://purge.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js` | 改完立刻生效 |
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.5.2/js/gtwrap/gtwrap.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.4.0/js/gtwrap/gtwrap.js" charset="utf-8"></script>
 ```
 
 ## 现在有哪些
 
 | 库 | 文件 | 版本 | 外链 |
 | --- | --- | --- | --- |
-| gtwrap.js（Google 官方翻译组件的壳：无横幅、左下角小胶囊、原文气泡可缩可隐藏） | `js/gtwrap/gtwrap.js` | 1.5.2 | [@gtwrap-v1.5.2](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.5.2/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
+| gtwrap.js（Google 官方翻译组件的壳：无横幅、左下角小胶囊、原文气泡可缩可隐藏） | `js/gtwrap/gtwrap.js` | 1.4.0 | [@gtwrap-v1.4.0](https://cdn.jsdelivr.net/gh/liijjj/libs@gtwrap-v1.4.0/js/gtwrap/gtwrap.js) · [@main](https://cdn.jsdelivr.net/gh/liijjj/libs@main/js/gtwrap/gtwrap.js) |
 
 - 演示：<https://liijjj.github.io/libs/js/gtwrap/demo.html>
 - 自检：<https://liijjj.github.io/libs/js/gtwrap/check.html>
