@@ -11,13 +11,15 @@
 (function (window, document) {
     'use strict';
 
-    var VERSION = '1.4.0b';
+    var VERSION = '1.4.0c';
 
+    // 语言名用各自的原生写法（Japanese 显示成 日本語，英语显示 English）
     var NAMES = {
-        'zh-CN': '简体中文', 'zh-TW': '繁體中文', en: '英语', ja: '日语', ko: '韩语',
-        fr: '法语', de: '德语', es: '西班牙语', ru: '俄语', it: '意大利语',
-        pt: '葡萄牙语', ar: '阿拉伯语', th: '泰语', vi: '越南语', id: '印尼语',
-        hi: '印地语', tr: '土耳其语', nl: '荷兰语', pl: '波兰语', uk: '乌克兰语'
+        'zh-CN': '简体中文', 'zh-TW': '繁體中文', zh: '中文',
+        en: 'English', ja: '日本語', ko: '한국어',
+        fr: 'Français', de: 'Deutsch', es: 'Español', ru: 'Русский', it: 'Italiano',
+        pt: 'Português', ar: 'العربية', th: 'ไทย', vi: 'Tiếng Việt', id: 'Bahasa Indonesia',
+        hi: 'हिन्दी', tr: 'Türkçe', nl: 'Nederlands', pl: 'Polski', uk: 'Українська'
     };
 
     var FLAGS = {
@@ -75,6 +77,14 @@
         var html = (document.documentElement.getAttribute('lang') || '').trim();
         if (html && html !== 'auto') return html;
         return 'auto';
+    }
+
+    /* "原文"那一项显示当前页面的语种名（如 English / 日本語 / 简体中文） */
+    function pageLangName() {
+        var code = pageLang();
+        if (!code || code === 'auto') return cfg.restore_label;
+        var name = NAMES[code] || NAMES[code.split('-')[0]];
+        return name || code;
     }
 
     /* ----------------------------------------------------------- 深浅色判断 */
@@ -221,7 +231,7 @@
 
         var o0 = document.createElement('option');
         o0.value = '';
-        o0.textContent = cfg.restore_label;
+        o0.textContent = pageLangName();
         sel.appendChild(o0);
 
         for (var i = 0; i < cfg.languages.length; i++) {

@@ -10,8 +10,8 @@
             "name": "gtwrap.js",
             "desc": "给 Google 官方翻译组件套壳：去掉顶部横幅，换成左下角小胶囊，翻译/悬停原文都用官方的",
             "file": "js/gtwrap/gtwrap.js",
-            "version": "1.4.0b",
-            "ref": "gtwrap-v1.4.0bb",
+            "version": "1.4.0c",
+            "ref": "gtwrap-v1.4.0cb",
             "demo": "js/gtwrap/demo.html",
             "doc": "js/gtwrap/README.md",
             "tags": [
